@@ -38,8 +38,9 @@ module.exports = {
     });
 
     // Contas antigas do ambiente de desenvolvimento continuam usáveis.
+    const emailVerifiedAt = queryInterface.quoteIdentifier('emailVerifiedAt');
     await queryInterface.sequelize.query(
-      'UPDATE users SET emailVerifiedAt = NOW() WHERE emailVerifiedAt IS NULL'
+      `UPDATE users SET ${emailVerifiedAt} = NOW() WHERE ${emailVerifiedAt} IS NULL`
     );
   },
 

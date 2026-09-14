@@ -5,6 +5,7 @@ const dbPort = Number(process.env.DB_PORT) || 3306;
 
 const baseConfig = {
   logging: process.env.DB_LOGGING === 'true' ? console.log : false,
+  seederStorage: 'sequelize',
   define: {
     underscored: false,
     freezeTableName: true,

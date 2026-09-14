@@ -6,6 +6,7 @@ const now = () => new Date();
 
 module.exports = {
   async up(queryInterface) {
+    const q = (identifier) => queryInterface.quoteIdentifier(identifier);
     const products = await queryInterface.sequelize.query(
       'SELECT id, name FROM products WHERE name IN (:names)',
       {
@@ -25,7 +26,7 @@ module.exports = {
     for (const [name, flavors] of flavorUpdates) {
       if (productByName[name]) {
         await queryInterface.sequelize.query(
-          'UPDATE products SET flavors = :flavors, updatedAt = :updatedAt WHERE id = :id',
+          `UPDATE products SET flavors = :flavors, ${q('updatedAt')} = :updatedAt WHERE id = :id`,
           {
             replacements: {
               id: productByName[name].id,
@@ -75,7 +76,7 @@ module.exports = {
       if (!product || !user) continue;
 
       const existing = await queryInterface.sequelize.query(
-        'SELECT id FROM product_reviews WHERE productId = :productId AND userId = :userId LIMIT 1',
+        `SELECT id FROM product_reviews WHERE ${q('productId')} = :productId AND ${q('userId')} = :userId LIMIT 1`,
         {
           replacements: {
             productId: product.id,

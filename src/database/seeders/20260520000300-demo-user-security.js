@@ -4,11 +4,12 @@ const now = () => new Date();
 
 module.exports = {
   async up(queryInterface) {
+    const q = (identifier) => queryInterface.quoteIdentifier(identifier);
     await queryInterface.sequelize.query(
       `UPDATE users
-       SET emailVerifiedAt = COALESCE(emailVerifiedAt, :now),
-           emailVerificationCode = NULL,
-           emailVerificationExpiresAt = NULL
+       SET ${q('emailVerifiedAt')} = COALESCE(${q('emailVerifiedAt')}, :now),
+           ${q('emailVerificationCode')} = NULL,
+           ${q('emailVerificationExpiresAt')} = NULL
        WHERE email IN (:emails)`,
       {
         replacements: {
@@ -21,7 +22,7 @@ module.exports = {
     await queryInterface.sequelize.query(
       `UPDATE users
        SET cpf = :cpf,
-           cpfVerifiedAt = COALESCE(cpfVerifiedAt, :now)
+           ${q('cpfVerifiedAt')} = COALESCE(${q('cpfVerifiedAt')}, :now)
        WHERE email = :email`,
       {
         replacements: {
@@ -35,7 +36,7 @@ module.exports = {
     await queryInterface.sequelize.query(
       `UPDATE users
        SET cpf = :cpf,
-           cpfVerifiedAt = COALESCE(cpfVerifiedAt, :now)
+           ${q('cpfVerifiedAt')} = COALESCE(${q('cpfVerifiedAt')}, :now)
        WHERE email = :email`,
       {
         replacements: {
@@ -48,10 +49,11 @@ module.exports = {
   },
 
   async down(queryInterface) {
+    const cpfVerifiedAt = queryInterface.quoteIdentifier('cpfVerifiedAt');
     await queryInterface.sequelize.query(
       `UPDATE users
        SET cpf = NULL,
-           cpfVerifiedAt = NULL
+           ${cpfVerifiedAt} = NULL
        WHERE email IN (:emails)`,
       {
         replacements: {

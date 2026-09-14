@@ -23,25 +23,26 @@ module.exports = {
       after: 'platformFeeAmount',
     });
 
+    const q = (identifier) => queryInterface.quoteIdentifier(identifier);
     await queryInterface.sequelize.query(`
       UPDATE orders
       SET
-        platformFeeRate = CASE
-          WHEN totalPrice <= 10 THEN 8
-          WHEN totalPrice <= 50 THEN 10
+        ${q('platformFeeRate')} = CASE
+          WHEN ${q('totalPrice')} <= 10 THEN 8
+          WHEN ${q('totalPrice')} <= 50 THEN 10
           ELSE 12
         END,
-        platformFeeAmount = ROUND(totalPrice * (
+        ${q('platformFeeAmount')} = ROUND(${q('totalPrice')} * (
           CASE
-            WHEN totalPrice <= 10 THEN 0.08
-            WHEN totalPrice <= 50 THEN 0.10
+            WHEN ${q('totalPrice')} <= 10 THEN 0.08
+            WHEN ${q('totalPrice')} <= 50 THEN 0.10
             ELSE 0.12
           END
         ), 2),
-        sellerNetAmount = ROUND(totalPrice - ROUND(totalPrice * (
+        ${q('sellerNetAmount')} = ROUND(${q('totalPrice')} - ROUND(${q('totalPrice')} * (
           CASE
-            WHEN totalPrice <= 10 THEN 0.08
-            WHEN totalPrice <= 50 THEN 0.10
+            WHEN ${q('totalPrice')} <= 10 THEN 0.08
+            WHEN ${q('totalPrice')} <= 50 THEN 0.10
             ELSE 0.12
           END
         ), 2), 2)

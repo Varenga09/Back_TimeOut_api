@@ -7,6 +7,7 @@ const now = () => new Date();
 
 module.exports = {
   async up(queryInterface) {
+    const q = (identifier) => queryInterface.quoteIdentifier(identifier);
     const existingCategories = await queryInterface.sequelize.query(
       'SELECT COUNT(*) AS total FROM categories',
       { type: QueryTypes.SELECT }
@@ -24,7 +25,7 @@ module.exports = {
     }
 
     const existingEnvironment = await queryInterface.sequelize.query(
-      'SELECT id FROM environments WHERE accessCode = :accessCode LIMIT 1',
+      `SELECT id FROM environments WHERE ${q('accessCode')} = :accessCode LIMIT 1`,
       {
         replacements: { accessCode: 'SENAI2026' },
         type: QueryTypes.SELECT,
@@ -46,7 +47,7 @@ module.exports = {
       ]);
 
       const createdEnvironment = await queryInterface.sequelize.query(
-        'SELECT id FROM environments WHERE accessCode = :accessCode LIMIT 1',
+        `SELECT id FROM environments WHERE ${q('accessCode')} = :accessCode LIMIT 1`,
         {
           replacements: { accessCode: 'SENAI2026' },
           type: QueryTypes.SELECT,
@@ -117,7 +118,7 @@ module.exports = {
     );
 
     const coxinhaRows = await queryInterface.sequelize.query(
-      'SELECT id FROM products WHERE name = :name AND environmentId = :environmentId LIMIT 1',
+      `SELECT id FROM products WHERE name = :name AND ${q('environmentId')} = :environmentId LIMIT 1`,
       {
         replacements: { name: 'Coxinha', environmentId },
         type: QueryTypes.SELECT,

@@ -49,11 +49,12 @@ module.exports = {
       name: 'user_environments_user_environment_unique',
     });
 
+    const q = (identifier) => queryInterface.quoteIdentifier(identifier);
     await queryInterface.sequelize.query(`
-      INSERT INTO user_environments (userId, environmentId, role, createdAt, updatedAt)
-      SELECT id, environmentId, role, NOW(), NOW()
+      INSERT INTO user_environments (${q('userId')}, ${q('environmentId')}, role, ${q('createdAt')}, ${q('updatedAt')})
+      SELECT id, ${q('environmentId')}, role, NOW(), NOW()
       FROM users
-      WHERE environmentId IS NOT NULL
+      WHERE ${q('environmentId')} IS NOT NULL
     `);
   },
 
