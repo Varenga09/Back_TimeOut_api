@@ -3,7 +3,12 @@ const EnvironmentRepository = require('../repositories/EnvironmentRepository');
 const UserEnvironmentRepository = require('../repositories/UserEnvironmentRepository');
 const UserRepository = require('../repositories/UserRepository');
 const AppError = require('../utils/AppError');
-const { generateEmailCode, getEmailCodeExpiresAt } = require('../utils/security');
+const {
+  generateEmailCode,
+  getEmailCodeExpiresAt,
+  hashSecurityCode,
+  securityCodesMatch,
+} = require('../utils/security');
 const MailService = require('./MailService');
 const SmsService = require('./SmsService');
 
@@ -30,7 +35,7 @@ class AuthService {
       phone,
       role: 'customer',
       environmentId: environment.id,
-      emailVerificationCode,
+      emailVerificationCode: hashSecurityCode(emailVerificationCode),
       emailVerificationExpiresAt: getEmailCodeExpiresAt(),
     });
 
@@ -49,6 +54,17 @@ class AuthService {
   }
 
   async login(email, password) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const demoEmails = new Set([
+      'admin@localfood.com',
+      'vendedor@localfood.com',
+      'mateus@localfood.com',
+    ]);
+
+    if (process.env.NODE_ENV === 'production' && demoEmails.has(normalizedEmail)) {
+      throw new AppError('E-mail ou senha inválidos', 401);
+    }
+
     const user = await UserRepository.findByEmail(email);
     if (!user) {
       throw new AppError('E-mail ou senha inválidos', 401);
@@ -69,6 +85,7 @@ class AuthService {
         email: user.email,
         role: user.role,
         environmentId: user.environmentId,
+        tokenVersion: user.tokenVersion || 0,
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
@@ -89,6 +106,53 @@ class AuthService {
     return user;
   }
 
+  async requestPasswordReset(email) {
+    const user = await UserRepository.findByEmail(email);
+
+    if (user) {
+      const code = generateEmailCode();
+      const rawUser = await UserRepository.findRawById(user.id);
+      await rawUser.update({
+        passwordResetCodeHash: hashSecurityCode(code),
+        passwordResetExpiresAt: getEmailCodeExpiresAt(),
+      });
+
+      await MailService.sendPasswordResetCode({
+        to: user.email,
+        name: user.name,
+        code,
+      });
+    }
+
+    return { accepted: true };
+  }
+
+  async resetPassword(email, code, password) {
+    const user = await UserRepository.findByEmail(email);
+    const rawUser = user ? await UserRepository.findRawById(user.id) : null;
+
+    if (
+      !rawUser ||
+      !rawUser.passwordResetCodeHash ||
+      !securityCodesMatch(code, rawUser.passwordResetCodeHash)
+    ) {
+      throw new AppError('Código de recuperação inválido', 400);
+    }
+
+    if (!rawUser.passwordResetExpiresAt || rawUser.passwordResetExpiresAt < new Date()) {
+      throw new AppError('Código expirado. Solicite um novo código', 400);
+    }
+
+    await rawUser.update({
+      password,
+      passwordResetCodeHash: null,
+      passwordResetExpiresAt: null,
+      tokenVersion: Number(rawUser.tokenVersion || 0) + 1,
+    });
+
+    return { reset: true };
+  }
+
   async verifyEmail(userId, code) {
     const user = await UserRepository.findRawById(userId);
     if (!user) {
@@ -99,7 +163,7 @@ class AuthService {
       return UserRepository.findById(userId);
     }
 
-    if (!user.emailVerificationCode || user.emailVerificationCode !== code) {
+    if (!securityCodesMatch(code, user.emailVerificationCode)) {
       throw new AppError('Código de verificação inválido', 400);
     }
 
@@ -140,7 +204,7 @@ class AuthService {
 
     const emailVerificationCode = generateEmailCode();
     await user.update({
-      emailVerificationCode,
+      emailVerificationCode: hashSecurityCode(emailVerificationCode),
       emailVerificationExpiresAt: getEmailCodeExpiresAt(),
       verificationChannel: selectedChannel,
     });

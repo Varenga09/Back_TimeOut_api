@@ -30,6 +30,32 @@ class AuthController {
     }
   }
 
+  async forgotPassword(req, res, next) {
+    try {
+      const result = await AuthService.requestPasswordReset(req.body.email);
+      return successResponse(
+        res,
+        result,
+        'Se o e-mail estiver cadastrado, enviaremos um código de recuperação'
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async resetPassword(req, res, next) {
+    try {
+      const result = await AuthService.resetPassword(
+        req.body.email,
+        req.body.code,
+        req.body.password
+      );
+      return successResponse(res, result, 'Senha alterada com sucesso');
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async verifyEmail(req, res, next) {
     try {
       const user = await AuthService.verifyEmail(req.user.id, req.body.code);

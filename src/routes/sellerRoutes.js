@@ -6,13 +6,14 @@ const emailVerifiedMiddleware = require('../middlewares/emailVerifiedMiddleware'
 const { validateMiddleware } = require('../middlewares/validateMiddleware');
 const { idParamSchema } = require('../validations/commonValidation');
 const { requestSellerSchema } = require('../validations/sellerValidation');
+const { privilegeLimiter } = require('../middlewares/rateLimiters');
 
 const router = Router();
 
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
 
-router.post('/request', validateMiddleware(requestSellerSchema), SellerController.requestProfile);
+router.post('/request', privilegeLimiter, validateMiddleware(requestSellerSchema), SellerController.requestProfile);
 router.patch(
   '/:id/approve',
   roleMiddleware('admin'),

@@ -17,8 +17,44 @@ function getEmailCodeExpiresAt() {
   return new Date(Date.now() + 15 * 60 * 1000);
 }
 
+function hashSecurityCode(code) {
+  const secret = process.env.JWT_SECRET || 'local-development-code-secret';
+  return crypto.createHmac('sha256', secret).update(String(code)).digest('hex');
+}
+
+function securityCodesMatch(code, storedValue) {
+  if (!storedValue) return false;
+
+  const candidate = hashSecurityCode(code);
+  const stored = String(storedValue);
+
+  if (stored.length === 64) {
+    return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(stored));
+  }
+
+  // Compatibility for verification codes created before hashed storage.
+  const rawCandidate = Buffer.from(String(code));
+  const rawStored = Buffer.from(stored);
+  return rawCandidate.length === rawStored.length &&
+    crypto.timingSafeEqual(rawCandidate, rawStored);
+}
+
 function onlyDigits(value = '') {
   return String(value).replace(/\D/g, '');
+}
+
+function isValidBrazilPhone(value) {
+  const digits = onlyDigits(value);
+  const localNumber = digits.startsWith('55') && digits.length > 11
+    ? digits.slice(2)
+    : digits;
+
+  if (![10, 11].includes(localNumber.length) || /^(\d)\1+$/.test(localNumber)) {
+    return false;
+  }
+
+  const ddd = Number(localNumber.slice(0, 2));
+  return ddd >= 11 && ddd <= 99;
 }
 
 function isValidCpf(value) {
@@ -47,6 +83,9 @@ function isValidCpf(value) {
 module.exports = {
   generateEmailCode,
   getEmailCodeExpiresAt,
+  hashSecurityCode,
+  isValidBrazilPhone,
   isValidCpf,
   onlyDigits,
+  securityCodesMatch,
 };

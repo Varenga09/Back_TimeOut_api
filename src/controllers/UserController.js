@@ -40,7 +40,11 @@ class UserController {
 
   async becomeAdmin(req, res, next) {
     try {
-      const user = await UserService.becomeAdmin(req.user, req.body.adminCode);
+      const user = await UserService.becomeAdmin(
+        req.user,
+        req.body.adminCode,
+        req.body.currentPassword
+      );
       return successResponse(res, { user }, 'Perfil de administrador ativado com sucesso');
     } catch (error) {
       return next(error);

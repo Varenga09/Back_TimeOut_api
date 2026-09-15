@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const cors = require('cors');
 const express = require('express');
+const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 
@@ -10,6 +11,10 @@ const errorMiddleware = require('./middlewares/errorMiddleware');
 const { errorResponse } = require('./utils/response');
 
 const app = express();
+
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 
 const corsOrigins = (process.env.CORS_ORIGIN || '*')
   .split(',')
@@ -22,6 +27,10 @@ app.use(
     credentials: true,
   })
 );
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '2mb' }));

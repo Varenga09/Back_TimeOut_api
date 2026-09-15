@@ -2,7 +2,8 @@ const UserRepository = require('../repositories/UserRepository');
 const UserEnvironmentRepository = require('../repositories/UserEnvironmentRepository');
 const EnvironmentRepository = require('../repositories/EnvironmentRepository');
 const AppError = require('../utils/AppError');
-const { generateEmailCode, getEmailCodeExpiresAt } = require('../utils/security');
+const { generateEmailCode, getEmailCodeExpiresAt, hashSecurityCode } = require('../utils/security');
+const MailService = require('./MailService');
 
 function removeUndefined(data) {
   return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
@@ -48,6 +49,18 @@ class UserService {
       throw new AppError('Você não pode atualizar este usuário', 403);
     }
 
+    if (data.password) {
+      if (!ownProfile) {
+        throw new AppError('Administradores não podem definir a senha de outro usuário', 403);
+      }
+
+      const rawUser = await UserRepository.findRawById(id);
+      const passwordMatches = await rawUser.comparePassword(data.currentPassword || '');
+      if (!passwordMatches) {
+        throw new AppError('Senha atual incorreta', 401);
+      }
+    }
+
     if (data.email && data.email !== user.email) {
       const emailInUse = await UserRepository.findByEmail(data.email);
       if (emailInUse) {
@@ -65,10 +78,13 @@ class UserService {
         }
       : {
           ...data,
+          currentPassword: undefined,
+          password: ownProfile ? data.password : undefined,
           ...(Number(user.environmentId) !== Number(requester.environmentId) && { role: undefined }),
         };
     const emailChanged = data.email && data.email !== user.email;
     const phoneChanged = data.phone && data.phone !== user.phone;
+    const verificationCode = emailChanged ? generateEmailCode() : null;
 
     const updatedUser = await UserRepository.update(
       id,
@@ -76,16 +92,27 @@ class UserService {
         ...allowedData,
         ...(emailChanged && {
           emailVerifiedAt: null,
-          emailVerificationCode: generateEmailCode(),
+          emailVerificationCode: hashSecurityCode(verificationCode),
           emailVerificationExpiresAt: getEmailCodeExpiresAt(),
           verificationChannel: 'email',
         }),
         ...(phoneChanged && {
           phoneVerifiedAt: null,
         }),
+        ...(data.password && {
+          tokenVersion: Number((await UserRepository.findRawById(id)).tokenVersion || 0) + 1,
+        }),
         ...(file && { profileImageUrl: `/uploads/${file.filename}` }),
       })
     );
+
+    if (emailChanged) {
+      await MailService.sendVerificationCode({
+        to: data.email,
+        name: updatedUser.name,
+        code: verificationCode,
+      });
+    }
 
     if (adminSameEnvironment && data.role) {
       await UserEnvironmentRepository.upsert(id, requester.environmentId, data.role);
@@ -95,7 +122,7 @@ class UserService {
     return updatedUser;
   }
 
-  async becomeAdmin(requester, adminCode) {
+  async becomeAdmin(requester, adminCode, currentPassword) {
     const configuredCode = process.env.ADMIN_INVITE_CODE ||
       (process.env.NODE_ENV === 'production' ? null : 'LOCALFOOD2026');
 
@@ -105,6 +132,12 @@ class UserService {
 
     if (String(adminCode || '').trim() !== configuredCode) {
       throw new AppError('Código de administrador inválido', 403);
+    }
+
+
+    const user = await UserRepository.findRawById(requester.id);
+    if (!user || !(await user.comparePassword(currentPassword || ''))) {
+      throw new AppError('Senha atual incorreta', 401);
     }
 
     await UserEnvironmentRepository.upsert(requester.id, requester.environmentId, 'admin');

@@ -3,7 +3,15 @@ const { User, Environment, UserEnvironment } = require('../models');
 const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 
 const safeUserAttributes = {
-  exclude: ['password', 'emailVerificationCode', 'emailVerificationExpiresAt', 'cpf'],
+  exclude: [
+    'password',
+    'emailVerificationCode',
+    'emailVerificationExpiresAt',
+    'passwordResetCodeHash',
+    'passwordResetExpiresAt',
+    'tokenVersion',
+    'cpf',
+  ],
 };
 
 const userIncludes = [

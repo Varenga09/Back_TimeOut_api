@@ -1,5 +1,7 @@
 const Joi = require('joi');
 const { paginationSchema } = require('./commonValidation');
+const { strongPasswordSchema } = require('./passwordValidation');
+const { phoneSchema } = require('./phoneValidation');
 
 const emailSchema = Joi.string().trim().lowercase().email({ tlds: { allow: false } });
 
@@ -12,8 +14,13 @@ const listUsersQuerySchema = Joi.object({
 const updateUserSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120),
   email: emailSchema,
-  password: Joi.string().min(6),
-  phone: Joi.string().trim().max(30).allow('', null),
+  password: strongPasswordSchema,
+  currentPassword: Joi.string().when('password', {
+    is: Joi.exist(),
+    then: Joi.required(),
+    otherwise: Joi.forbidden(),
+  }),
+  phone: phoneSchema,
   profileImageUrl: Joi.string().trim().max(255).allow('', null),
   role: Joi.string().valid('customer', 'seller', 'admin'),
 })
@@ -24,6 +31,7 @@ const updateUserSchema = Joi.object({
 
 const becomeAdminSchema = Joi.object({
   adminCode: Joi.string().trim().min(4).max(80).required(),
+  currentPassword: Joi.string().required(),
 });
 
 module.exports = { listUsersQuerySchema, updateUserSchema, becomeAdminSchema };

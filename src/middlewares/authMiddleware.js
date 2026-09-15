@@ -28,11 +28,15 @@ const authMiddleware = async (req, res, next) => {
 
   try {
     const user = await User.findByPk(decoded.id, {
-      attributes: ['id', 'email', 'phone', 'role', 'environmentId', 'emailVerifiedAt', 'phoneVerifiedAt', 'cpfVerifiedAt'],
+      attributes: ['id', 'email', 'phone', 'role', 'environmentId', 'emailVerifiedAt', 'phoneVerifiedAt', 'cpfVerifiedAt', 'tokenVersion'],
     });
 
     if (!user) {
       return next(new AppError('Usuário autenticado não encontrado', 401));
+    }
+
+    if (Number(decoded.tokenVersion || 0) !== Number(user.tokenVersion || 0)) {
+      return next(new AppError('Sessão encerrada. Faça login novamente', 401));
     }
 
     // Usa os dados atuais do banco, mesmo se o token tiver uma role antiga.

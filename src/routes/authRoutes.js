@@ -7,14 +7,25 @@ const {
   loginSchema,
   verifyEmailSchema,
   resendVerificationSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } = require('../validations/authValidation');
+const {
+  loginLimiter,
+  passwordRecoveryLimiter,
+  registerLimiter,
+  resendLimiter,
+  verificationLimiter,
+} = require('../middlewares/rateLimiters');
 
 const router = Router();
 
-router.post('/register', validateMiddleware(registerSchema), AuthController.register);
-router.post('/login', validateMiddleware(loginSchema), AuthController.login);
+router.post('/register', registerLimiter, validateMiddleware(registerSchema), AuthController.register);
+router.post('/login', loginLimiter, validateMiddleware(loginSchema), AuthController.login);
+router.post('/password/forgot', passwordRecoveryLimiter, validateMiddleware(forgotPasswordSchema), AuthController.forgotPassword);
+router.post('/password/reset', passwordRecoveryLimiter, validateMiddleware(resetPasswordSchema), AuthController.resetPassword);
 router.get('/me', authMiddleware, AuthController.me);
-router.post('/verify-email', authMiddleware, validateMiddleware(verifyEmailSchema), AuthController.verifyEmail);
-router.post('/resend-verification', authMiddleware, validateMiddleware(resendVerificationSchema), AuthController.resendVerification);
+router.post('/verify-email', verificationLimiter, authMiddleware, validateMiddleware(verifyEmailSchema), AuthController.verifyEmail);
+router.post('/resend-verification', resendLimiter, authMiddleware, validateMiddleware(resendVerificationSchema), AuthController.resendVerification);
 
 module.exports = router;

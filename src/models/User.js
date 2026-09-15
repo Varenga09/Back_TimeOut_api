@@ -27,7 +27,7 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       emailVerificationCode: {
-        type: DataTypes.STRING(10),
+        type: DataTypes.STRING(64),
         allowNull: true,
       },
       emailVerificationExpiresAt: {
@@ -42,6 +42,19 @@ module.exports = (sequelize) => {
       password: {
         type: DataTypes.STRING(255),
         allowNull: false,
+      },
+      passwordResetCodeHash: {
+        type: DataTypes.STRING(64),
+        allowNull: true,
+      },
+      passwordResetExpiresAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      tokenVersion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
       },
       phone: {
         type: DataTypes.STRING(30),
@@ -105,6 +118,9 @@ module.exports = (sequelize) => {
     delete values.password;
     delete values.emailVerificationCode;
     delete values.emailVerificationExpiresAt;
+    delete values.passwordResetCodeHash;
+    delete values.passwordResetExpiresAt;
+    delete values.tokenVersion;
     delete values.cpf;
     return values;
   };
