@@ -262,16 +262,25 @@ Use `PORT=3001` para nao conflitar com o backend de tarefas que usa `3000`.
 
 ### Envio de e-mail de verificacao
 
-Para o codigo chegar no e-mail real do usuario, configure SMTP no `.env`.
+Em producao, use a API HTTPS do Brevo. Ela funciona no plano gratuito do Render,
+que bloqueia conexoes SMTP de saida.
 
-Exemplo com Gmail:
+1. No Brevo, acesse `Configuracoes > Remetentes e IP > Remetentes`.
+2. Cadastre o e-mail remetente e confirme o codigo recebido nele.
+3. Acesse `SMTP e API > Chaves de API` e crie uma chave.
+4. Configure no Render:
 
-1. Ative a verificacao em duas etapas na sua conta Google.
-2. Crie uma `Senha de app` em `Conta Google > Seguranca > Senhas de app`.
-3. Use essa senha em `SMTP_PASSWORD`.
-4. Reinicie o backend com `npm run dev`.
+```env
+BREVO_API_KEY=xkeysib-sua-chave
+BREVO_FROM_EMAIL=seu_email@gmail.com
+BREVO_FROM_NAME=TimeOut
+MAIL_APP_NAME=TimeOut
+```
 
-Sem SMTP configurado, em `NODE_ENV=development`, a API ainda mostra o codigo na tela para facilitar testes locais. Em producao, configure SMTP obrigatoriamente.
+O Brevo e o provedor prioritario. SMTP continua disponivel como alternativa para
+desenvolvimento local. Sem provedor configurado, defina
+`LOCAL_VERIFICATION_DELIVERY=true` apenas no ambiente local para testar com o
+codigo exibido pela aplicacao.
 
 ## Migrations
 

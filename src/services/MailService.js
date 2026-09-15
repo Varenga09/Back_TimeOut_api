@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const { Resend } = require('resend');
+const { BrevoClient } = require('@getbrevo/brevo');
 
 class MailService {
   isLocalDeliveryEnabled() {
@@ -8,20 +8,34 @@ class MailService {
   }
 
   isConfigured() {
-    return Boolean(process.env.RESEND_API_KEY) || Boolean(
+    return this.isBrevoConfigured() || Boolean(
       process.env.SMTP_HOST &&
       process.env.SMTP_USER &&
       process.env.SMTP_PASSWORD
     );
   }
 
-  async sendWithResend(message) {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const { error } = await resend.emails.send(message);
+  isBrevoConfigured() {
+    return Boolean(process.env.BREVO_API_KEY && process.env.BREVO_FROM_EMAIL);
+  }
 
-    if (error) {
-      throw new Error(error.message || 'Falha ao enviar e-mail pelo Resend');
-    }
+  async sendWithBrevo({ to, name, subject, text, html }) {
+    const brevo = new BrevoClient({
+      apiKey: process.env.BREVO_API_KEY,
+      timeoutInSeconds: 15,
+      maxRetries: 2,
+    });
+
+    await brevo.transactionalEmails.sendTransacEmail({
+      sender: {
+        name: process.env.BREVO_FROM_NAME || process.env.MAIL_APP_NAME || 'TimeOut',
+        email: process.env.BREVO_FROM_EMAIL,
+      },
+      to: [{ email: to, ...(name ? { name } : {}) }],
+      subject,
+      textContent: text,
+      htmlContent: html,
+    });
   }
 
   createTransporter() {
@@ -50,7 +64,7 @@ class MailService {
 
       return {
         sent: false,
-        reason: 'SMTP_NOT_CONFIGURED',
+        reason: 'EMAIL_NOT_CONFIGURED',
       };
     }
 
@@ -82,10 +96,10 @@ class MailService {
     `;
 
     try {
-      if (process.env.RESEND_API_KEY) {
-        await this.sendWithResend({
-          from: process.env.RESEND_FROM || 'TimeOut <onboarding@resend.dev>',
+      if (this.isBrevoConfigured()) {
+        await this.sendWithBrevo({
           to,
+          name,
           subject,
           text,
           html,
@@ -94,16 +108,21 @@ class MailService {
         await this.createTransporter().sendMail({ from, to, subject, text, html });
       }
     } catch (error) {
-      if (process.env.NODE_ENV === 'production') {
-        throw error;
-      }
-
       const message = error.message || '';
-      const reason = /Invalid login|Username and Password|WebLoginRequired|534|535/i.test(message)
-        ? 'SMTP_AUTH_FAILED'
-        : 'SMTP_SEND_FAILED';
+      const statusCode = error.statusCode || error.status;
+      const reason = this.isBrevoConfigured()
+        ? statusCode === 401
+          ? 'BREVO_AUTH_FAILED'
+          : statusCode === 429
+            ? 'BREVO_RATE_LIMITED'
+            : /sender|not valid|not verified/i.test(message)
+              ? 'BREVO_SENDER_INVALID'
+              : 'BREVO_SEND_FAILED'
+        : /Invalid login|Username and Password|WebLoginRequired|534|535/i.test(message)
+          ? 'SMTP_AUTH_FAILED'
+          : 'SMTP_SEND_FAILED';
 
-      console.warn('Falha ao enviar e-mail de verificação:', error.message);
+      console.warn('Falha ao enviar e-mail de verificação:', reason, error.message);
       return {
         sent: false,
         reason,
