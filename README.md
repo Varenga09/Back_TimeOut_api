@@ -146,11 +146,12 @@ local_food_db
 - `subscriptions`
 - `seller_requests`
 - `mock_transactions`
+- `seller_payout_accounts`
 - `SequelizeMeta`
 
 ## Monetizacao experimental
 
-O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada e todos os pedidos sao aprovados automaticamente para que os vendedores possam testar o fluxo sem bloqueios.
+O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada, nenhum Pix e gerado e nenhum gateway externo e chamado.
 
 - Cadastro novo sempre cria um cliente gratuito.
 - O cliente informa um CPF valido e envia uma solicitacao para vender.
@@ -159,7 +160,11 @@ O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada 
 - Basico: mensalidade R$ 0,00 e comissao de 7%.
 - Pro: mensalidade simulada de R$ 19,90 e comissao de 3%.
 - Institucional: configuracao experimental a partir de R$ 99,00.
-- A comissao e a receita liquida sao gravadas somente quando o pedido chega a `delivered`.
+- O vendedor conecta apenas uma conta ficticia, sem chave Pix ou dados bancarios.
+- O pedido nasce com pagamento `pending`; a simulacao aprovada passa por `approved` e fica `held`.
+- A comissao e a receita liquida sao gravadas somente quando o pedido chega a `delivered`, quando a transacao passa para `settled`.
+- Cancelamentos e recusas anteriores a entrega geram `refunded`, devolvem o estoque e nao geram comissao.
+- O percentual do plano e copiado para o pedido e para a transacao, preservando o historico mesmo apos uma troca de plano.
 
 Para manter a aplicacao sem cobrancas reais, nao altere `PAYMENT_MODE` para `live`.
 
@@ -205,7 +210,10 @@ Essas credenciais sao exclusivamente locais e o seeder nao cria essas contas qua
 7. Se o ambiente for privado, aprove a participacao no painel do administrador.
 8. Teste a troca e a desativacao do codigo; o codigo anterior deve parar de funcionar.
 9. Confira as notificacoes no sino do cabecalho e as acoes no historico de auditoria.
-10. Teste compras e vendas normalmente; pagamentos simulados sao aprovados automaticamente.
+10. Como vendedor, abra `Recebimentos` e conecte a conta ficticia de testes.
+11. Crie um pedido como cliente e escolha pagamento aprovado, pendente ou recusado.
+12. Confira que o aprovado fica reservado e so e liquidado depois que o vendedor marca o pedido como entregue.
+13. Cancele ou recuse outro pedido e confira o reembolso simulado e a devolucao do estoque.
 
 As migrations sao incrementais e nao removem usuarios, produtos, pedidos ou pagamentos existentes.
 
@@ -735,6 +743,23 @@ PATCH http://localhost:3001/api/v1/orders/1/cancel
 | `arrange_with_seller` | Combinar com vendedor |
 
 O vendedor pode ativar ou desativar as formas de pagamento em `GET/PUT /api/v1/payments/settings`.
+
+### Pagamento intermediado simulado
+
+Com `PAYMENT_MODE=mock`, use estas rotas autenticadas:
+
+| Metodo | Rota | Acesso |
+| --- | --- | --- |
+| GET | `/payments/payout-account` | Vendedor |
+| POST | `/payments/payout-account/connect` | Vendedor |
+| POST | `/payments/orders/:id/simulate` | Participantes do pedido/admin do ambiente |
+| GET | `/payments/admin/overview` | Admin do ambiente |
+| PATCH | `/payments/admin/accounts/:sellerId/status` | Admin do ambiente |
+| GET | `/payments/platform/overview` | Equipe TimeOut |
+
+O corpo da conexao contem somente `responsibleName`, `storeName` e `acceptedTestTerms=true`. Chave Pix, agencia, conta, senha, cartao e outros dados bancarios sao rejeitados.
+
+Fluxo: `pending -> approved -> held -> settled`. Antes da entrega, cancelamento ou recusa gera `refunded`. Transacoes recusadas ou reembolsadas nao produzem comissao. Tentativas duplicadas ficam bloqueadas e auditadas.
 
 Pagamentos online usam Mercado Pago:
 

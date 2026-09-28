@@ -177,6 +177,7 @@ module.exports = (sequelize) => {
     User.hasMany(models.EnvironmentApplication, { foreignKey: 'userId', as: 'environmentApplications' });
     User.hasMany(models.Notification, { foreignKey: 'userId', as: 'notifications' });
     User.hasMany(models.AuditLog, { foreignKey: 'actorId', as: 'auditLogs' });
+    User.hasMany(models.SellerPayoutAccount, { foreignKey: 'userId', as: 'payoutAccounts' });
 
     User.hasMany(models.PaymentTransaction, {
       foreignKey: 'sellerId',

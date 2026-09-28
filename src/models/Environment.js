@@ -77,6 +77,7 @@ module.exports = (sequelize) => {
     Environment.hasMany(models.Subscription, { foreignKey: 'environmentId', as: 'subscriptions' });
     Environment.hasMany(models.SellerRequest, { foreignKey: 'environmentId', as: 'sellerRequests' });
     Environment.hasMany(models.MockTransaction, { foreignKey: 'environmentId', as: 'mockTransactions' });
+    Environment.hasMany(models.SellerPayoutAccount, { foreignKey: 'environmentId', as: 'payoutAccounts' });
     Environment.hasMany(models.EnvironmentApplication, { foreignKey: 'environmentId', as: 'applications' });
     Environment.hasMany(models.AuditLog, { foreignKey: 'environmentId', as: 'auditLogs' });
     Environment.hasMany(models.EnvironmentAccessCode, { foreignKey: 'environmentId', as: 'accessCodes' });

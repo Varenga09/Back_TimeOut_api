@@ -24,7 +24,7 @@ test('pagamentos usam modo mock por padrão e não acionam gateway real', () => 
   delete process.env.PAYMENT_MODE;
   assert.equal(PaymentService.getMode(), 'mock');
   assert.equal(PaymentService.requiresPayment('cash'), true);
-  assert.equal(PaymentService.requiresConfirmedPayment({ paymentProvider: 'mock', paymentMethod: 'pix' }), false);
+  assert.equal(PaymentService.requiresConfirmedPayment({ paymentProvider: 'mock', paymentMethod: 'pix' }), true);
   if (previous === undefined) delete process.env.PAYMENT_MODE;
   else process.env.PAYMENT_MODE = previous;
 });

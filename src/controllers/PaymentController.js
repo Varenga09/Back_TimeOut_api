@@ -55,6 +55,31 @@ class PaymentController {
       return next(error);
     }
   }
+
+  async payoutOverview(req, res, next) {
+    try { return successResponse(res, await PaymentService.getPayoutOverview(req.user), 'Recebimentos encontrados'); }
+    catch (error) { return next(error); }
+  }
+
+  async connectPayout(req, res, next) {
+    try { return successResponse(res, { account: await PaymentService.connectPayoutAccount(req.body, req.user) }, 'Conta de teste conectada', 201); }
+    catch (error) { return next(error); }
+  }
+
+  async adminOverview(req, res, next) {
+    try { return successResponse(res, await PaymentService.getAdminPayoutOverview(req.user), 'Visão financeira encontrada'); }
+    catch (error) { return next(error); }
+  }
+
+  async payoutStatus(req, res, next) {
+    try { return successResponse(res, { account: await PaymentService.setPayoutAccountStatus(req.params.sellerId, req.body.suspended, req.user) }, 'Conta de recebimento atualizada'); }
+    catch (error) { return next(error); }
+  }
+
+  async platformOverview(req, res, next) {
+    try { return successResponse(res, await PaymentService.getPlatformPayoutOverview(req.user), 'Visão geral financeira encontrada'); }
+    catch (error) { return next(error); }
+  }
 }
 
 module.exports = new PaymentController();

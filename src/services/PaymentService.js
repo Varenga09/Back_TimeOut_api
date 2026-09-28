@@ -1,13 +1,16 @@
 const crypto = require('crypto');
 
-const { sequelize, Order, MockTransaction } = require('../models');
+const { sequelize, Order, MockTransaction, SellerPayoutAccount, User, Subscription, Plan } = require('../models');
 const OrderRepository = require('../repositories/OrderRepository');
 const PaymentSettingRepository = require('../repositories/PaymentSettingRepository');
 const PaymentTransactionRepository = require('../repositories/PaymentTransactionRepository');
 const UserRepository = require('../repositories/UserRepository');
 const AppError = require('../utils/AppError');
 const MercadoPagoService = require('./MercadoPagoService');
-const { isEnvironmentAdmin } = require('../utils/permissions');
+const { isEnvironmentAdmin, isPlatformAdmin } = require('../utils/permissions');
+const { calculateCommission } = require('../utils/platformFee');
+const { resolveMockTransition } = require('../utils/mockPaymentLifecycle');
+const AuditService = require('./AuditService');
 
 const onlinePaymentMethods = ['pix', 'credit_card', 'debit_card'];
 
@@ -38,7 +41,7 @@ class PaymentService {
   }
 
   requiresConfirmedPayment(order) {
-    if (this.isMockMode()) return false;
+    if (this.isMockMode()) return true;
     return order.paymentProvider === 'mock' || this.isOnlinePayment(order.paymentMethod);
   }
 
@@ -63,7 +66,7 @@ class PaymentService {
 
     return PaymentSettingRepository.update(settings, {
       provider: data.provider || settings.provider,
-      providerAccountId: data.providerAccountId,
+      providerAccountId: null,
       acceptsPix: data.acceptsPix,
       acceptsCreditCard: data.acceptsCreditCard,
       acceptsDebitCard: data.acceptsDebitCard,
@@ -89,39 +92,61 @@ class PaymentService {
     return settings;
   }
 
-  async createPaymentForOrder(orderId) {
-    const order = await OrderRepository.findById(orderId);
+  async ensureConnectedPayoutAccount(sellerId, environmentId, transaction = null) {
+    if (!this.isMockMode()) return null;
+    const account = await SellerPayoutAccount.findOne({ where: { userId: sellerId, environmentId }, transaction });
+    if (!account || account.status !== 'connected') {
+      throw new AppError('O vendedor ainda não conectou a conta de recebimento para testes', 400);
+    }
+    return account;
+  }
+
+  async createPaymentForOrder(orderId, externalTransaction = null, providedOrder = null) {
+    const order = providedOrder || await OrderRepository.findById(orderId);
     if (order && this.isMockMode()) {
-      return sequelize.transaction(async (transaction) => {
+      const createMockPayment = async (transaction) => {
         const existing = await MockTransaction.findOne({
           where: { orderId: order.id },
           order: [['createdAt', 'DESC']],
+          lock: transaction.LOCK.UPDATE,
           transaction,
         });
+        if (existing) return existing;
+        await this.ensureConnectedPayoutAccount(order.sellerId, order.environmentId, transaction);
+        const now = new Date();
         const paymentData = {
           orderId: order.id,
           customerId: order.customerId,
           sellerId: order.sellerId,
           environmentId: order.environmentId,
           paymentMethod: order.paymentMethod,
-          status: 'approved',
+          status: 'pending',
           amount: Number(order.totalPrice),
-          simulatedAt: new Date(),
+          grossAmount: Number(order.grossSalesAmount || order.totalPrice),
+          commissionRate: Number(order.commissionRate || 0),
+          platformFeeAmount: 0,
+          sellerNetAmount: 0,
+          simulatedAt: now,
           isSimulated: true,
+          idempotencyKey: `mock-order-${order.id}`,
+          history: [{ status: 'pending', at: now.toISOString(), actorId: order.customerId }],
         };
-        const mockPayment = existing
-          ? await existing.update(paymentData, { transaction })
-          : await MockTransaction.create(paymentData, { transaction });
+        const mockPayment = await MockTransaction.create(paymentData, { transaction });
 
         await Order.update({
-          paymentStatus: 'paid',
+          paymentStatus: 'pending',
           paymentProvider: 'mock',
           isPaymentSimulated: true,
-          paidAt: new Date(),
+          paidAt: null,
         }, { where: { id: order.id }, transaction });
 
+        await AuditService.record({ actorId: order.customerId, action: 'mock_payment.created', resourceType: 'order', resourceId: order.id, environmentId: order.environmentId, summary: 'Pagamento intermediado de teste criado como pendente' }, transaction);
+
         return mockPayment;
-      });
+      };
+      return externalTransaction
+        ? createMockPayment(externalTransaction)
+        : sequelize.transaction(createMockPayment);
     }
     if (!order || !this.isOnlinePayment(order.paymentMethod)) {
       return null;
@@ -199,7 +224,7 @@ class PaymentService {
       throw new AppError('Este pedido não usa pagamento online', 400);
     }
 
-    if (order.paymentStatus === 'paid') {
+    if (['paid', 'held', 'settled'].includes(order.paymentStatus)) {
       throw new AppError('Este pedido já foi pago', 400);
     }
 
@@ -219,28 +244,186 @@ class PaymentService {
     if (!isCustomer && !isSeller && !isEnvironmentAdmin(requester)) {
       throw new AppError('Você não pode simular o pagamento deste pedido', 403);
     }
+    const current = await MockTransaction.findOne({ where: { orderId: order.id }, order: [['createdAt', 'DESC']] });
+    if (!current) throw new AppError('Transação simulada não encontrada', 404);
+    if (['settled', 'refunded'].includes(current.status)) {
+      await this.auditDuplicate(current, requester.id, `simulate_${status}`);
+    }
+    const action = status === 'approved' ? 'approve' : status === 'declined' ? 'decline' : 'pending';
+    const resolvedStatus = resolveMockTransition(current.status, action);
+    if (current.status === 'held' && resolvedStatus === 'held') {
+      return { transaction: current, order, paymentMode: 'mock' };
+    }
+
     const transaction = await sequelize.transaction(async (dbTransaction) => {
-      const created = await MockTransaction.create({
-        orderId: order.id,
-        customerId: order.customerId,
-        sellerId: order.sellerId,
-        environmentId: order.environmentId,
-        paymentMethod: order.paymentMethod,
-        status,
-        amount: Number(order.totalPrice),
-        simulatedAt: new Date(),
-        isSimulated: true,
-      }, { transaction: dbTransaction });
-      const paymentStatus = status === 'approved' ? 'paid' : status === 'declined' ? 'failed' : 'awaiting_payment';
+      const payment = await MockTransaction.findByPk(current.id, { lock: dbTransaction.LOCK.UPDATE, transaction: dbTransaction });
+      const now = new Date();
+      const history = Array.isArray(payment.history) ? [...payment.history] : [];
+      const nextStatus = resolvedStatus;
+      const updateData = { simulatedAt: now };
+      if (status === 'approved') {
+        const amounts = calculateCommission(payment.grossAmount || payment.amount, payment.commissionRate);
+        history.push({ status: 'approved', at: now.toISOString(), actorId: requester.id });
+        history.push({ status: 'held', at: now.toISOString(), actorId: requester.id });
+        Object.assign(updateData, { approvedAt: payment.approvedAt || now, heldAt: payment.heldAt || now, platformFeeAmount: amounts.amount, sellerNetAmount: amounts.sellerNetAmount });
+      } else {
+        history.push({ status, at: now.toISOString(), actorId: requester.id });
+        Object.assign(updateData, { platformFeeAmount: 0, sellerNetAmount: 0, approvedAt: null, heldAt: null });
+      }
+      await payment.update({ ...updateData, status: nextStatus, history }, { transaction: dbTransaction });
       await Order.update({
-        paymentStatus,
+        paymentStatus: nextStatus,
         paymentProvider: 'mock',
         isPaymentSimulated: true,
-        paidAt: status === 'approved' ? new Date() : null,
+        paidAt: nextStatus === 'held' ? now : null,
       }, { where: { id: order.id }, transaction: dbTransaction });
-      return created;
+      if (status === 'approved') {
+        await AuditService.record({ actorId: requester.id, action: 'mock_payment.approved', resourceType: 'mock_transaction', resourceId: payment.id, environmentId: order.environmentId, summary: 'Pagamento de teste aprovado' }, dbTransaction);
+        await AuditService.record({ actorId: requester.id, action: 'mock_payment.held', resourceType: 'mock_transaction', resourceId: payment.id, environmentId: order.environmentId, summary: 'Valor de teste reservado pela plataforma' }, dbTransaction);
+      } else {
+        await AuditService.record({ actorId: requester.id, action: `mock_payment.${status}`, resourceType: 'mock_transaction', resourceId: payment.id, environmentId: order.environmentId, summary: `Pagamento de teste alterado para ${status}` }, dbTransaction);
+      }
+      return payment;
     });
     return { transaction, order: await OrderRepository.findById(order.id), paymentMode: 'mock' };
+  }
+
+  async settleMockPayment(order, actorId, transaction) {
+    if (!this.isMockMode()) return null;
+    const payment = await MockTransaction.findOne({ where: { orderId: order.id }, order: [['createdAt', 'DESC']], lock: transaction.LOCK.UPDATE, transaction });
+    if (!payment) throw new AppError('Transação simulada não encontrada', 404);
+    try {
+      resolveMockTransition(payment.status, 'settle');
+    } catch (error) {
+      if (error.statusCode === 409) await this.auditDuplicate(payment, actorId, 'settlement');
+      throw error;
+    }
+    const now = new Date();
+    const amounts = calculateCommission(payment.grossAmount || payment.amount, payment.commissionRate);
+    const history = [...(Array.isArray(payment.history) ? payment.history : []), { status: 'settled', at: now.toISOString(), actorId }];
+    await payment.update({ status: 'settled', platformFeeAmount: amounts.amount, sellerNetAmount: amounts.sellerNetAmount, settledAt: now, history }, { transaction });
+    await order.update({ paymentStatus: 'settled', commissionAmount: amounts.amount, sellerNetRevenue: amounts.sellerNetAmount, commissionConfirmedAt: now, platformFeeAmount: amounts.amount, sellerNetAmount: amounts.sellerNetAmount }, { transaction });
+    await AuditService.record({ actorId, action: 'mock_payment.settled', resourceType: 'mock_transaction', resourceId: payment.id, environmentId: order.environmentId, summary: 'Pagamento de teste liquidado após entrega' }, transaction);
+    return payment;
+  }
+
+  async refundMockPayment(order, actorId, transaction) {
+    if (!this.isMockMode()) return null;
+    const payment = await MockTransaction.findOne({ where: { orderId: order.id }, order: [['createdAt', 'DESC']], lock: transaction.LOCK.UPDATE, transaction });
+    if (!payment) return null;
+    try {
+      resolveMockTransition(payment.status, 'refund');
+    } catch (error) {
+      if (error.statusCode === 409) await this.auditDuplicate(payment, actorId, 'refund');
+      throw error;
+    }
+    const now = new Date();
+    const history = [...(Array.isArray(payment.history) ? payment.history : []), { status: 'refunded', at: now.toISOString(), actorId }];
+    await payment.update({ status: 'refunded', platformFeeAmount: 0, sellerNetAmount: 0, refundedAt: now, history }, { transaction });
+    await order.update({ paymentStatus: 'refunded', commissionAmount: 0, sellerNetRevenue: 0, commissionConfirmedAt: null, platformFeeAmount: 0, sellerNetAmount: 0 }, { transaction });
+    await AuditService.record({ actorId, action: 'mock_payment.refunded', resourceType: 'mock_transaction', resourceId: payment.id, environmentId: order.environmentId, summary: 'Pagamento de teste reembolsado' }, transaction);
+    return payment;
+  }
+
+  async auditDuplicate(payment, actorId, operation) {
+    return AuditService.record({ actorId, action: 'mock_payment.duplicate_attempt', resourceType: 'mock_transaction', resourceId: payment.id, environmentId: payment.environmentId, summary: `Tentativa duplicada bloqueada: ${operation}` });
+  }
+
+  async auditDuplicateForOrder(orderId, actorId, operation) {
+    if (!this.isMockMode()) return null;
+    const payment = await MockTransaction.findOne({ where: { orderId }, order: [['createdAt', 'DESC']] });
+    return payment ? this.auditDuplicate(payment, actorId, operation) : null;
+  }
+
+  async connectPayoutAccount(data, requester) {
+    this.ensureSeller(requester);
+    if (!this.isMockMode()) throw new AppError('Conta de teste disponível somente no modo simulado', 400);
+    let account = await SellerPayoutAccount.findOne({ where: { userId: requester.id, environmentId: requester.environmentId } });
+    if (account?.status === 'connected') return account;
+    const testAccountId = account?.testAccountId || await this.generateTestAccountId();
+    const now = new Date();
+    const payload = {
+      responsibleName: data.responsibleName,
+      storeName: data.storeName,
+      testAccountId,
+      status: 'connected',
+      acceptedTestTermsAt: now,
+      connectedAt: now,
+      suspendedAt: null,
+      suspendedBy: null,
+    };
+    account = account
+      ? await account.update(payload)
+      : await SellerPayoutAccount.create({ ...payload, userId: requester.id, environmentId: requester.environmentId });
+    await AuditService.record({ actorId: requester.id, action: 'payout_account.connected', resourceType: 'seller_payout_account', resourceId: account.id, environmentId: requester.environmentId, summary: 'Conta de recebimento de teste conectada' });
+    return account;
+  }
+
+  async generateTestAccountId() {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const candidate = `TEST_SELLER_${String(crypto.randomInt(1, 1000000)).padStart(6, '0')}`;
+      if (!await SellerPayoutAccount.findOne({ where: { testAccountId: candidate } })) return candidate;
+    }
+    throw new AppError('Não foi possível gerar uma identificação de teste', 500);
+  }
+
+  summarizeMockTransactions(transactions) {
+    const cents = (value) => Math.round(Number(value || 0) * 100);
+    const summary = { grossMoved: 0, grossRevenue: 0, heldAmount: 0, commissions: 0, netAvailable: 0, refundedAmount: 0, pendingCount: 0, heldCount: 0, settledCount: 0, declinedCount: 0, refundedCount: 0 };
+    for (const item of transactions) {
+      const gross = cents(item.grossAmount || item.amount);
+      if (item.status === 'pending' || item.status === 'approved') summary.pendingCount += 1;
+      if (item.status === 'held') { summary.grossMoved += gross; summary.heldAmount += gross; summary.heldCount += 1; }
+      if (item.status === 'settled') {
+        summary.grossMoved += gross;
+        summary.grossRevenue += gross;
+        summary.commissions += cents(item.platformFeeAmount);
+        summary.netAvailable += cents(item.sellerNetAmount);
+        summary.settledCount += 1;
+      }
+      if (item.status === 'declined') summary.declinedCount += 1;
+      if (item.status === 'refunded') { summary.grossMoved += gross; summary.refundedAmount += gross; summary.refundedCount += 1; }
+    }
+    return Object.fromEntries(Object.entries(summary).map(([key, value]) => [key, key.endsWith('Count') ? value : value / 100]));
+  }
+
+  async getPayoutOverview(requester) {
+    this.ensureSeller(requester);
+    const [account, subscription, transactions] = await Promise.all([
+      SellerPayoutAccount.findOne({ where: { userId: requester.id, environmentId: requester.environmentId } }),
+      Subscription.findOne({ where: { userId: requester.id, environmentId: requester.environmentId, status: 'active' }, include: [{ model: Plan, as: 'plan' }] }),
+      MockTransaction.findAll({ where: { sellerId: requester.id, environmentId: requester.environmentId }, include: [{ model: Order, as: 'order', attributes: ['id', 'status', 'createdAt'] }], order: [['createdAt', 'DESC']], limit: 100 }),
+    ]);
+    return { account: account || { status: 'not_connected' }, subscription, summary: this.summarizeMockTransactions(transactions), transactions, paymentMode: this.getMode() };
+  }
+
+  async getAdminPayoutOverview(requester) {
+    if (!isEnvironmentAdmin(requester)) throw new AppError('Acesso restrito ao administrador do ambiente', 403);
+    const [accounts, transactions] = await Promise.all([
+      SellerPayoutAccount.findAll({ where: { environmentId: requester.environmentId }, include: [{ model: User, as: 'seller', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']] }),
+      MockTransaction.findAll({ where: { environmentId: requester.environmentId }, order: [['createdAt', 'DESC']], limit: 200 }),
+    ]);
+    const sellers = await User.findAll({ where: { environmentId: requester.environmentId, role: 'seller' }, attributes: ['id', 'name', 'email'] });
+    const connectedIds = new Set(accounts.filter((account) => account.status === 'connected').map((account) => Number(account.userId)));
+    return { accounts, sellersWithoutAccount: sellers.filter((seller) => !connectedIds.has(Number(seller.id))), summary: this.summarizeMockTransactions(transactions), transactions, paymentMode: this.getMode() };
+  }
+
+  async getPlatformPayoutOverview(requester) {
+    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe TimeOut', 403);
+    const [accounts, transactions] = await Promise.all([
+      SellerPayoutAccount.findAll({ include: [{ model: User, as: 'seller', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']], limit: 500 }),
+      MockTransaction.findAll({ order: [['createdAt', 'DESC']], limit: 500 }),
+    ]);
+    return { accounts, summary: this.summarizeMockTransactions(transactions), transactions, paymentMode: this.getMode() };
+  }
+
+  async setPayoutAccountStatus(sellerId, suspended, requester) {
+    if (!isEnvironmentAdmin(requester)) throw new AppError('Acesso restrito ao administrador do ambiente', 403);
+    const account = await SellerPayoutAccount.findOne({ where: { userId: sellerId, environmentId: requester.environmentId } });
+    if (!account) throw new AppError('Conta de recebimento não encontrada neste ambiente', 404);
+    await account.update({ status: suspended ? 'suspended' : 'connected', suspendedAt: suspended ? new Date() : null, suspendedBy: suspended ? requester.id : null });
+    await AuditService.record({ actorId: requester.id, action: suspended ? 'payout_account.suspended' : 'payout_account.reactivated', resourceType: 'seller_payout_account', resourceId: account.id, environmentId: requester.environmentId, summary: suspended ? 'Conta de recebimento de teste suspensa' : 'Conta de recebimento de teste reativada' });
+    return account;
   }
 
   async handleMercadoPagoWebhook(payload, query = {}, headers = {}) {

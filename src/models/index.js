@@ -29,6 +29,7 @@ const EnvironmentApplication = require('./EnvironmentApplication')(sequelize);
 const Notification = require('./Notification')(sequelize);
 const AuditLog = require('./AuditLog')(sequelize);
 const EnvironmentAccessCode = require('./EnvironmentAccessCode')(sequelize);
+const SellerPayoutAccount = require('./SellerPayoutAccount')(sequelize);
 
 const models = {
   Environment,
@@ -50,6 +51,7 @@ const models = {
   Notification,
   AuditLog,
   EnvironmentAccessCode,
+  SellerPayoutAccount,
 };
 
 Object.values(models).forEach((model) => {

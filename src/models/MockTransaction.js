@@ -8,10 +8,20 @@ module.exports = (sequelize) => {
     sellerId: { type: DataTypes.INTEGER, allowNull: false },
     environmentId: { type: DataTypes.INTEGER, allowNull: false },
     paymentMethod: { type: DataTypes.STRING(40), allowNull: false },
-    status: { type: DataTypes.ENUM('approved', 'pending', 'declined'), allowNull: false, defaultValue: 'pending' },
+    status: { type: DataTypes.ENUM('pending', 'approved', 'held', 'settled', 'declined', 'refunded'), allowNull: false, defaultValue: 'pending' },
     amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+    grossAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    commissionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+    platformFeeAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+    sellerNetAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     simulatedAt: { type: DataTypes.DATE, allowNull: false },
     isSimulated: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    heldAt: { type: DataTypes.DATE, allowNull: true },
+    settledAt: { type: DataTypes.DATE, allowNull: true },
+    refundedAt: { type: DataTypes.DATE, allowNull: true },
+    idempotencyKey: { type: DataTypes.STRING(100), allowNull: true, unique: true },
+    history: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
   }, { tableName: 'mock_transactions', timestamps: true });
 
   MockTransaction.associate = (models) => {

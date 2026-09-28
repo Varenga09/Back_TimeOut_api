@@ -20,8 +20,27 @@ const simulatePaymentSchema = Joi.object({
   status: Joi.string().valid('approved', 'pending', 'declined').required(),
 });
 
+const connectPayoutAccountSchema = Joi.object({
+  responsibleName: Joi.string().trim().min(3).max(120).required(),
+  storeName: Joi.string().trim().min(2).max(120).required(),
+  acceptedTestTerms: Joi.boolean().truthy('true').valid(true).required(),
+  pixKey: Joi.forbidden(),
+  bank: Joi.forbidden(),
+  agency: Joi.forbidden(),
+  account: Joi.forbidden(),
+  bankAccount: Joi.forbidden(),
+  cardNumber: Joi.forbidden(),
+  password: Joi.forbidden(),
+});
+
+const payoutStatusSchema = Joi.object({
+  suspended: Joi.boolean().required(),
+});
+
 module.exports = {
   updatePaymentSettingsSchema,
   sellerIdParamSchema,
   simulatePaymentSchema,
+  connectPayoutAccountSchema,
+  payoutStatusSchema,
 };

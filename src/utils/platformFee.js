@@ -19,13 +19,14 @@ function calculatePlatformFee(totalPrice) {
 }
 
 function calculateCommission(grossAmount, rate) {
-  const gross = Number(Math.max(0, Number(grossAmount || 0)).toFixed(2));
+  const grossCents = Math.max(0, Math.round(Number(grossAmount || 0) * 100));
   const safeRate = Number(Math.min(100, Math.max(0, Number(rate || 0))).toFixed(2));
-  const amount = Number((gross * (safeRate / 100)).toFixed(2));
+  const rateBasisPoints = Math.round(safeRate * 100);
+  const feeCents = Math.round((grossCents * rateBasisPoints) / 10000);
   return {
     rate: safeRate,
-    amount,
-    sellerNetAmount: Number((gross - amount).toFixed(2)),
+    amount: feeCents / 100,
+    sellerNetAmount: (grossCents - feeCents) / 100,
   };
 }
 
