@@ -20,7 +20,7 @@ module.exports = (sequelize) => {
       },
       accessCode: {
         type: DataTypes.STRING(50),
-        allowNull: false,
+        allowNull: true,
         unique: true,
       },
       address: {
@@ -35,6 +35,9 @@ module.exports = (sequelize) => {
     {
       tableName: 'environments',
       timestamps: true,
+      defaultScope: {
+        attributes: { exclude: ['accessCode'] },
+      },
     }
   );
 

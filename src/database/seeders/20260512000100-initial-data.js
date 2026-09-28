@@ -1,6 +1,7 @@
 'use strict';
 
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { QueryTypes } = require('sequelize');
 
 const now = () => new Date();
@@ -25,9 +26,9 @@ module.exports = {
     }
 
     const existingEnvironment = await queryInterface.sequelize.query(
-      `SELECT id FROM environments WHERE ${q('accessCode')} = :accessCode LIMIT 1`,
+      'SELECT id FROM environments WHERE name = :name LIMIT 1',
       {
-        replacements: { accessCode: 'SENAI2026' },
+        replacements: { name: 'SENAI Taubate' },
         type: QueryTypes.SELECT,
       }
     );
@@ -39,7 +40,7 @@ module.exports = {
         {
           name: 'SENAI Taubate',
           type: 'school',
-          accessCode: 'SENAI2026',
+          accessCode: null,
           address: 'Taubate - SP',
           createdAt: now(),
           updatedAt: now(),
@@ -47,14 +48,32 @@ module.exports = {
       ]);
 
       const createdEnvironment = await queryInterface.sequelize.query(
-        `SELECT id FROM environments WHERE ${q('accessCode')} = :accessCode LIMIT 1`,
+        'SELECT id FROM environments WHERE name = :name LIMIT 1',
         {
-          replacements: { accessCode: 'SENAI2026' },
+          replacements: { name: 'SENAI Taubate' },
           type: QueryTypes.SELECT,
         }
       );
 
       environmentId = createdEnvironment[0].id;
+    }
+
+    const codeHash = crypto.createHash('sha256').update('SENAI2026').digest('hex');
+    const existingAccessCode = await queryInterface.sequelize.query(
+      `SELECT id FROM ${q('environment_access_codes')} WHERE ${q('environmentId')} = :environmentId AND ${q('isActive')} = true LIMIT 1`,
+      { replacements: { environmentId }, type: QueryTypes.SELECT }
+    );
+    if (!existingAccessCode[0]) {
+      await queryInterface.bulkInsert('environment_access_codes', [{
+        environmentId,
+        codeHash,
+        codePreview: '****2026',
+        isActive: true,
+        createdBy: null,
+        revokedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      }]);
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -172,7 +191,7 @@ module.exports = {
     await queryInterface.bulkDelete('users', {
       email: ['admin@localfood.com', 'vendedor@localfood.com', 'mateus@localfood.com'],
     });
-    await queryInterface.bulkDelete('environments', { accessCode: 'SENAI2026' });
+    await queryInterface.bulkDelete('environments', { name: 'SENAI Taubate' });
     await queryInterface.bulkDelete('categories', {
       name: ['Salgados', 'Doces', 'Bebidas', 'Marmitas', 'Lanches', 'Sobremesas', 'Outros'],
     });

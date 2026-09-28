@@ -10,6 +10,7 @@ const {
   simulatePaymentSchema,
   connectPayoutAccountSchema,
   payoutStatusSchema,
+  payoutHistoryQuerySchema,
 } = require('../validations/paymentValidation');
 
 const router = Router();
@@ -29,10 +30,11 @@ router.get(
 );
 router.post('/orders/:id/retry', validateMiddleware(idParamSchema, 'params'), PaymentController.retryPayment);
 router.post('/orders/:id/simulate', validateMiddleware(idParamSchema, 'params'), validateMiddleware(simulatePaymentSchema), PaymentController.simulate);
-router.get('/payout-account', PaymentController.payoutOverview);
+router.get('/payout-account', validateMiddleware(payoutHistoryQuerySchema, 'query'), PaymentController.payoutOverview);
 router.post('/payout-account/connect', validateMiddleware(connectPayoutAccountSchema), PaymentController.connectPayout);
-router.get('/admin/overview', PaymentController.adminOverview);
+router.get('/admin/overview', validateMiddleware(payoutHistoryQuerySchema, 'query'), PaymentController.adminOverview);
 router.patch('/admin/accounts/:sellerId/status', validateMiddleware(sellerIdParamSchema, 'params'), validateMiddleware(payoutStatusSchema), PaymentController.payoutStatus);
-router.get('/platform/overview', PaymentController.platformOverview);
+router.post('/admin/orders/:id/retry-settlement', validateMiddleware(idParamSchema, 'params'), PaymentController.retrySettlement);
+router.get('/platform/overview', validateMiddleware(payoutHistoryQuerySchema, 'query'), PaymentController.platformOverview);
 
 module.exports = router;

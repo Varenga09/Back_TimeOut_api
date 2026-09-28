@@ -196,7 +196,7 @@ class AccessControlService {
           name: application.institutionName,
           type: application.institutionType,
           address: application.address,
-          accessCode: generatedCode,
+          accessCode: null,
           accessCodeEnabled: true,
           isPrivate: data.isPrivate !== false,
           status: 'active',
@@ -214,7 +214,7 @@ class AccessControlService {
         decidedAt: ['approved', 'rejected'].includes(data.status) ? new Date() : null,
         history: appendHistory(application, data.status, requester.id, data.reason),
       }, { transaction });
-      await NotificationService.create(application.userId, 'Solicitação de ambiente atualizada', data.status === 'approved' ? `Ambiente aprovado. Código inicial: ${generatedCode}` : data.status === 'changes_requested' ? `Correções solicitadas: ${data.reason}` : data.status === 'rejected' ? `Solicitação recusada: ${data.reason}` : 'Sua solicitação está em análise.', 'environment_application', '/access', transaction);
+      await NotificationService.create(application.userId, 'Solicitação de ambiente atualizada', data.status === 'approved' ? 'Ambiente aprovado. O código inicial foi exibido uma única vez ao responsável pela aprovação.' : data.status === 'changes_requested' ? `Correções solicitadas: ${data.reason}` : data.status === 'rejected' ? `Solicitação recusada: ${data.reason}` : 'Sua solicitação está em análise.', 'environment_application', '/access', transaction);
       await AuditService.record({ actorId: requester.id, action: `environment_application.${data.status}`, resourceType: 'environment_application', resourceId: application.id, environmentId: application.environmentId, summary: `Solicitação de ambiente alterada para ${data.status}` }, transaction);
     });
     return { application: sanitizeApplication(await EnvironmentApplication.findByPk(id)), generatedCode };
@@ -276,7 +276,7 @@ class AccessControlService {
     await sequelize.transaction(async (transaction) => {
       await EnvironmentAccessCode.update({ isActive: false, revokedAt: new Date() }, { where: { environmentId: requester.environmentId, isActive: true }, transaction });
       await EnvironmentAccessCode.create({ environmentId: requester.environmentId, codeHash: hashEnvironmentAccessCode(code), codePreview: `****${code.slice(-4)}`, isActive: true, createdBy: requester.id }, { transaction });
-      await Environment.update({ accessCode: code, accessCodeEnabled: true }, { where: { id: requester.environmentId }, transaction });
+      await Environment.update({ accessCode: null, accessCodeEnabled: true }, { where: { id: requester.environmentId }, transaction });
       await AuditService.record({ actorId: requester.id, action: 'environment.access_code_rotated', resourceType: 'environment', resourceId: requester.environmentId, environmentId: requester.environmentId, summary: 'Código de acesso substituído' }, transaction);
     });
     return { accessCode: code };

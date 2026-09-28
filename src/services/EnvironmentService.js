@@ -6,7 +6,7 @@ const { isEnvironmentAdmin, isPlatformAdmin } = require('../utils/permissions');
 const NotificationService = require('./InternalNotificationService');
 const AuditService = require('./AuditService');
 const { generateEnvironmentAccessCode, hashEnvironmentAccessCode } = require('../utils/security');
-const { EnvironmentAccessCode } = require('../models');
+const { sequelize, Environment, EnvironmentAccessCode } = require('../models');
 
 class EnvironmentService {
   async create(data, requester = null) {
@@ -14,25 +14,20 @@ class EnvironmentService {
       throw new AppError('Ambientes são criados somente após aprovação da equipe TimeOut', 403);
     }
     const accessCode = generateEnvironmentAccessCode();
-    const existing = await EnvironmentRepository.findByAccessCode(accessCode);
-    if (existing) {
-      throw new AppError('Este código de acesso já está em uso', 409);
-    }
-
-    const environment = await EnvironmentRepository.create({
-      ...data,
-      accessCode,
-    });
-    await EnvironmentAccessCode.create({
-      environmentId: environment.id,
-      codeHash: hashEnvironmentAccessCode(accessCode),
-      codePreview: `****${accessCode.slice(-4)}`,
-      isActive: true,
-      createdBy: requester?.id || null,
+    const environment = await sequelize.transaction(async (transaction) => {
+      const created = await Environment.create({ ...data, accessCode: null }, { transaction });
+      await EnvironmentAccessCode.create({
+        environmentId: created.id,
+        codeHash: hashEnvironmentAccessCode(accessCode),
+        codePreview: `****${accessCode.slice(-4)}`,
+        isActive: true,
+        createdBy: requester?.id || null,
+      }, { transaction });
+      return created;
     });
 
     if (!requester) {
-      return { environment };
+      return { environment, generatedCode: accessCode };
     }
 
     await UserEnvironmentRepository.upsert(requester.id, environment.id, 'environment_admin');
@@ -41,7 +36,7 @@ class EnvironmentService {
       role: 'environment_admin',
     });
 
-    return { environment, user };
+    return { environment, user, generatedCode: accessCode };
   }
 
   async getAll(query, requester) {

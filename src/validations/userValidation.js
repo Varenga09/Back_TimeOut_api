@@ -28,9 +28,4 @@ const updateUserSchema = Joi.object({
     'object.min': 'Informe pelo menos um campo para atualizar',
   });
 
-const becomeAdminSchema = Joi.object({
-  adminCode: Joi.string().trim().min(4).max(80).required(),
-  currentPassword: Joi.string().required(),
-});
-
-module.exports = { listUsersQuerySchema, updateUserSchema, becomeAdminSchema };
+module.exports = { listUsersQuerySchema, updateUserSchema };

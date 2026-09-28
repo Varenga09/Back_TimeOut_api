@@ -57,7 +57,7 @@ class PaymentController {
   }
 
   async payoutOverview(req, res, next) {
-    try { return successResponse(res, await PaymentService.getPayoutOverview(req.user), 'Recebimentos encontrados'); }
+    try { return successResponse(res, await PaymentService.getPayoutOverview(req.user, req.query), 'Recebimentos encontrados'); }
     catch (error) { return next(error); }
   }
 
@@ -67,7 +67,7 @@ class PaymentController {
   }
 
   async adminOverview(req, res, next) {
-    try { return successResponse(res, await PaymentService.getAdminPayoutOverview(req.user), 'Visão financeira encontrada'); }
+    try { return successResponse(res, await PaymentService.getAdminPayoutOverview(req.user, req.query), 'Visão financeira encontrada'); }
     catch (error) { return next(error); }
   }
 
@@ -77,7 +77,12 @@ class PaymentController {
   }
 
   async platformOverview(req, res, next) {
-    try { return successResponse(res, await PaymentService.getPlatformPayoutOverview(req.user), 'Visão geral financeira encontrada'); }
+    try { return successResponse(res, await PaymentService.getPlatformPayoutOverview(req.user, req.query), 'Visão geral financeira encontrada'); }
+    catch (error) { return next(error); }
+  }
+
+  async retrySettlement(req, res, next) {
+    try { return successResponse(res, await PaymentService.retrySettlement(req.params.id, req.user), 'Nova tentativa de liquidação concluída'); }
     catch (error) { return next(error); }
   }
 }

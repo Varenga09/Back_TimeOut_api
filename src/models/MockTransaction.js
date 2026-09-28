@@ -21,6 +21,10 @@ module.exports = (sequelize) => {
     settledAt: { type: DataTypes.DATE, allowNull: true },
     refundedAt: { type: DataTypes.DATE, allowNull: true },
     idempotencyKey: { type: DataTypes.STRING(100), allowNull: true, unique: true },
+    principalOrderId: { type: DataTypes.INTEGER, allowNull: true, unique: true },
+    settlementBlockedAt: { type: DataTypes.DATE, allowNull: true },
+    settlementBlockedReason: { type: DataTypes.STRING(255), allowNull: true },
+    settlementReleasedBy: { type: DataTypes.INTEGER, allowNull: true },
     history: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
   }, { tableName: 'mock_transactions', timestamps: true });
 
@@ -29,6 +33,7 @@ module.exports = (sequelize) => {
     MockTransaction.belongsTo(models.User, { foreignKey: 'customerId', as: 'customer' });
     MockTransaction.belongsTo(models.User, { foreignKey: 'sellerId', as: 'seller' });
     MockTransaction.belongsTo(models.Environment, { foreignKey: 'environmentId', as: 'environment' });
+    MockTransaction.belongsTo(models.User, { foreignKey: 'settlementReleasedBy', as: 'settlementReleaser' });
   };
   return MockTransaction;
 };

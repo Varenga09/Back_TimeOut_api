@@ -4,7 +4,6 @@ const EnvironmentRepository = require('../repositories/EnvironmentRepository');
 const AppError = require('../utils/AppError');
 const { generateEmailCode, getEmailCodeExpiresAt, hashSecurityCode } = require('../utils/security');
 const MailService = require('./MailService');
-const PlanService = require('./PlanService');
 const { isEnvironmentAdmin } = require('../utils/permissions');
 
 function removeUndefined(data) {
@@ -119,13 +118,6 @@ class UserService {
     }
 
     return updatedUser;
-  }
-
-  async becomeAdmin(requester, adminCode, currentPassword) {
-    void requester;
-    void adminCode;
-    void currentPassword;
-    throw new AppError('Administradores são aprovados exclusivamente pela equipe interna TimeOut', 403);
   }
 
   async delete(id, requester) {

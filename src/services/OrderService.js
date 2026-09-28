@@ -1,4 +1,4 @@
-const { sequelize, Product, OrderItem } = require('../models');
+const { sequelize, Product, Order, OrderItem } = require('../models');
 const OrderRepository = require('../repositories/OrderRepository');
 const CouponRepository = require('../repositories/CouponRepository');
 const ProductRepository = require('../repositories/ProductRepository');
@@ -333,57 +333,46 @@ class OrderService {
       throw new AppError('Apenas o vendedor do pedido pode atualizar o status', 403);
     }
 
-    if (finalStatuses.includes(order.status)) {
-      if (order.status === 'delivered' && status === 'delivered') {
-        await PaymentService.auditDuplicateForOrder(order.id, requester.id, 'settlement');
-      }
-      if (['canceled', 'refused'].includes(order.status) && status === 'refused') {
-        await PaymentService.auditDuplicateForOrder(order.id, requester.id, 'refund');
-      }
-      throw new AppError('Pedido finalizado não pode ser alterado', 400);
-    }
+    let duplicateOperation = null;
+    try {
+      const result = await sequelize.transaction(async (transaction) => {
+        const orderToUpdate = await Order.findByPk(id, { lock: transaction.LOCK.UPDATE, transaction });
+        if (!orderToUpdate) throw new AppError('Pedido não encontrado', 404);
 
-    if (
-      status !== 'refused' &&
-      PaymentService.requiresConfirmedPayment(order) &&
-      !['held', 'settled', 'paid'].includes(order.paymentStatus)
-    ) {
-      throw new AppError('Confirme o pagamento antes de avançar o pedido', 400);
-    }
-
-    await sequelize.transaction(async (transaction) => {
-      if (status === 'refused') {
-        await this.restoreStock(order.id, transaction);
-      }
-
-      const orderToUpdate = await order.reload({ transaction });
-      const updateData = { status };
-      if (status === 'delivered') {
-        if (PaymentService.isMockMode()) {
-          await PaymentService.settleMockPayment(orderToUpdate, requester.id, transaction);
-        } else {
-          const commission = calculateCommission(orderToUpdate.grossSalesAmount, orderToUpdate.commissionRate);
-          Object.assign(updateData, {
-            commissionAmount: commission.amount,
-            sellerNetRevenue: commission.sellerNetAmount,
-            commissionConfirmedAt: new Date(),
-            platformFeeAmount: commission.amount,
-            sellerNetAmount: commission.sellerNetAmount,
-          });
+        if (finalStatuses.includes(orderToUpdate.status)) {
+          if (orderToUpdate.status === status && status === 'delivered') return { duplicateOperation: 'settlement' };
+          if (orderToUpdate.status === status && status === 'refused') return { duplicateOperation: 'refund' };
+          throw new AppError('Pedido finalizado não pode ser alterado', 409);
         }
-      }
-      if (status === 'refused') {
-        if (PaymentService.isMockMode()) await PaymentService.refundMockPayment(orderToUpdate, requester.id, transaction);
-        Object.assign(updateData, {
-          commissionAmount: 0,
-          sellerNetRevenue: 0,
-          commissionConfirmedAt: null,
-          platformFeeAmount: 0,
-          sellerNetAmount: 0,
-        });
-      }
-      await orderToUpdate.update(updateData, { transaction });
-    });
+
+        if (status !== 'refused' && PaymentService.requiresConfirmedPayment(orderToUpdate) && !['held', 'settled', 'paid'].includes(orderToUpdate.paymentStatus)) {
+          throw new AppError('Confirme o pagamento antes de avançar o pedido', 400);
+        }
+
+        const updateData = { status };
+        if (status === 'delivered') {
+          if (PaymentService.isMockMode()) {
+            await PaymentService.settleMockPayment(orderToUpdate, requester.id, transaction);
+          } else {
+            const commission = calculateCommission(orderToUpdate.grossSalesAmount, orderToUpdate.commissionRate);
+            Object.assign(updateData, { commissionAmount: commission.amount, sellerNetRevenue: commission.sellerNetAmount, commissionConfirmedAt: new Date(), platformFeeAmount: commission.amount, sellerNetAmount: commission.sellerNetAmount });
+          }
+        }
+        if (status === 'refused') {
+          if (PaymentService.isMockMode()) await PaymentService.refundMockPayment(orderToUpdate, requester.id, transaction);
+          await this.restoreStock(orderToUpdate.id, transaction);
+          Object.assign(updateData, { commissionAmount: 0, sellerNetRevenue: 0, commissionConfirmedAt: null, platformFeeAmount: 0, sellerNetAmount: 0 });
+        }
+        await orderToUpdate.update(updateData, { transaction });
+        return { duplicateOperation: null };
+      });
+      duplicateOperation = result.duplicateOperation;
+    } catch (error) {
+      if (error.statusCode === 409) await PaymentService.auditDuplicateForOrder(id, requester.id, `status_${status}`);
+      throw error;
+    }
+
+    if (duplicateOperation) await PaymentService.auditDuplicateForOrder(id, requester.id, duplicateOperation);
 
     return OrderRepository.findById(id);
   }
@@ -395,26 +384,24 @@ class OrderService {
       throw new AppError('Apenas o cliente pode cancelar o próprio pedido', 403);
     }
 
-    if (order.status !== 'pending') {
-      if (['canceled', 'refused'].includes(order.status)) {
-        await PaymentService.auditDuplicateForOrder(order.id, requester.id, 'refund');
-      }
-      throw new AppError('Somente pedidos pendentes podem ser cancelados', 400);
+    let duplicateRefund = false;
+    try {
+      duplicateRefund = await sequelize.transaction(async (transaction) => {
+        const orderToUpdate = await Order.findByPk(id, { lock: transaction.LOCK.UPDATE, transaction });
+        if (!orderToUpdate) throw new AppError('Pedido não encontrado', 404);
+        if (orderToUpdate.status === 'canceled') return true;
+        if (orderToUpdate.status !== 'pending') throw new AppError('Somente pedidos pendentes podem ser cancelados', 409);
+        if (PaymentService.isMockMode()) await PaymentService.refundMockPayment(orderToUpdate, requester.id, transaction);
+        await this.restoreStock(orderToUpdate.id, transaction);
+        await orderToUpdate.update({ status: 'canceled', commissionAmount: 0, sellerNetRevenue: 0, commissionConfirmedAt: null, platformFeeAmount: 0, sellerNetAmount: 0 }, { transaction });
+        return false;
+      });
+    } catch (error) {
+      if (error.statusCode === 409) await PaymentService.auditDuplicateForOrder(id, requester.id, 'refund');
+      throw error;
     }
 
-    await sequelize.transaction(async (transaction) => {
-      await this.restoreStock(order.id, transaction);
-      const orderToUpdate = await order.reload({ transaction });
-      if (PaymentService.isMockMode()) await PaymentService.refundMockPayment(orderToUpdate, requester.id, transaction);
-      await orderToUpdate.update({
-        status: 'canceled',
-        commissionAmount: 0,
-        sellerNetRevenue: 0,
-        commissionConfirmedAt: null,
-        platformFeeAmount: 0,
-        sellerNetAmount: 0,
-      }, { transaction });
-    });
+    if (duplicateRefund) await PaymentService.auditDuplicateForOrder(id, requester.id, 'refund');
 
     return OrderRepository.findById(id);
   }

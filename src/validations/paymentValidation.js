@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { paginationSchema } = require('./commonValidation');
 
 const updatePaymentSettingsSchema = Joi.object({
   provider: Joi.string().valid('manual', 'mercado_pago').optional(),
@@ -37,10 +38,20 @@ const payoutStatusSchema = Joi.object({
   suspended: Joi.boolean().required(),
 });
 
+const payoutHistoryQuerySchema = Joi.object({
+  ...paginationSchema,
+  status: Joi.string().valid('pending', 'approved', 'held', 'settled', 'declined', 'refunded').empty('').optional(),
+  dateFrom: Joi.date().iso().raw().optional(),
+  dateTo: Joi.date().iso().raw().min(Joi.ref('dateFrom')).optional(),
+  order: Joi.string().valid('asc', 'desc').default('desc'),
+  environmentId: Joi.number().integer().positive().optional(),
+});
+
 module.exports = {
   updatePaymentSettingsSchema,
   sellerIdParamSchema,
   simulatePaymentSchema,
   connectPayoutAccountSchema,
   payoutStatusSchema,
+  payoutHistoryQuerySchema,
 };

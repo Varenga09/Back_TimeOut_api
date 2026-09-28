@@ -37,10 +37,22 @@ module.exports = {
     await queryInterface.addColumn('environments', 'isPrivate', { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false });
     await queryInterface.addColumn('environments', 'status', { type: Sequelize.ENUM('active', 'suspended'), allowNull: false, defaultValue: 'active' });
     await queryInterface.addColumn('environments', 'accessCodeEnabled', { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true });
+    if (dialect !== 'postgres') {
+      const foreignKeys = await queryInterface.getForeignKeyReferencesForTable('users');
+      const environmentForeignKey = foreignKeys.find((foreignKey) => foreignKey.columnName === 'environmentId');
+      if (environmentForeignKey?.constraintName) {
+        await queryInterface.removeConstraint('users', environmentForeignKey.constraintName);
+      }
+    }
     await queryInterface.changeColumn('users', 'environmentId', {
       type: Sequelize.INTEGER,
       allowNull: true,
-      references: { model: 'environments', key: 'id' },
+    });
+    await queryInterface.addConstraint('users', {
+      fields: ['environmentId'],
+      type: 'foreign key',
+      name: 'users_environment_fk',
+      references: { table: 'environments', field: 'id' },
       onDelete: 'SET NULL',
       onUpdate: 'CASCADE',
     });

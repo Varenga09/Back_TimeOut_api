@@ -31,8 +31,7 @@ class EnvironmentRepository {
       where: { codeHash: hashEnvironmentAccessCode(accessCode), isActive: true },
       include: [{ model: Environment, as: 'environment' }],
     });
-    if (currentCode?.environment) return currentCode.environment;
-    return Environment.findOne({ where: { accessCode } });
+    return currentCode?.environment || null;
   }
 
   async listUsers(environmentId, query = {}) {

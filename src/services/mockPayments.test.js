@@ -5,7 +5,7 @@ const { MockTransaction, SellerPayoutAccount } = require('../models');
 const PaymentService = require('./PaymentService');
 const AuditService = require('./AuditService');
 const { connectPayoutAccountSchema } = require('../validations/paymentValidation');
-const { resolveMockTransition } = require('../utils/mockPaymentLifecycle');
+const { isIdempotentMockTransition, resolveMockTransition } = require('../utils/mockPaymentLifecycle');
 
 test('conecta conta simulada sem aceitar dados bancários reais', async () => {
   const originalMode = process.env.PAYMENT_MODE;
@@ -57,19 +57,21 @@ test('máquina de estados cobre aprovação, reserva, pendência, recusa e estor
   assert.equal(resolveMockTransition('pending', 'approve'), 'held');
   assert.equal(resolveMockTransition('pending', 'pending'), 'pending');
   assert.equal(resolveMockTransition('pending', 'decline'), 'declined');
-  assert.equal(resolveMockTransition('declined', 'approve'), 'held');
+  assert.throws(() => resolveMockTransition('declined', 'approve'), (error) => error.statusCode === 409);
   assert.equal(resolveMockTransition('held', 'settle'), 'settled');
   assert.equal(resolveMockTransition('pending', 'refund'), 'refunded');
   assert.equal(resolveMockTransition('held', 'refund'), 'refunded');
 });
 
-test('liquidação exige reserva e bloqueia duplicidade', () => {
+test('liquidação exige reserva e repetições idênticas são idempotentes', () => {
   assert.throws(() => resolveMockTransition('pending', 'settle'), (error) => error.statusCode === 400);
-  assert.throws(() => resolveMockTransition('settled', 'settle'), (error) => error.statusCode === 409);
+  assert.equal(resolveMockTransition('settled', 'settle'), 'settled');
+  assert.equal(isIdempotentMockTransition('settled', 'settle'), true);
 });
 
-test('reembolso bloqueia duplicidade e pedido já liquidado', () => {
-  assert.throws(() => resolveMockTransition('refunded', 'refund'), (error) => error.statusCode === 409);
+test('reembolso é idempotente e pedido já liquidado continua protegido', () => {
+  assert.equal(resolveMockTransition('refunded', 'refund'), 'refunded');
+  assert.equal(isIdempotentMockTransition('refunded', 'refund'), true);
   assert.throws(() => resolveMockTransition('settled', 'refund'), (error) => error.statusCode === 409);
 });
 
@@ -80,7 +82,7 @@ test('pagamento reservado não pode regredir para pendente ou recusado', () => {
 
 test('liquidação usa o percentual salvo na transação mesmo após troca de plano', async () => {
   const originalMode = process.env.PAYMENT_MODE;
-  const originals = { findOne: MockTransaction.findOne, audit: AuditService.record };
+  const originals = { findPayment: MockTransaction.findOne, findAccount: SellerPayoutAccount.findOne, audit: AuditService.record };
   process.env.PAYMENT_MODE = 'mock';
   let paymentUpdate;
   let orderUpdate;
@@ -97,9 +99,11 @@ test('liquidação usa o percentual salvo na transação mesmo após troca de pl
   const order = {
     id: 20,
     environmentId: 2,
+    sellerId: 9,
     update: async (data) => { orderUpdate = data; },
   };
   MockTransaction.findOne = async () => payment;
+  SellerPayoutAccount.findOne = async () => ({ id: 4, userId: 9, environmentId: 2, status: 'connected' });
   AuditService.record = async () => null;
 
   try {
@@ -110,7 +114,8 @@ test('liquidação usa o percentual salvo na transação mesmo após troca de pl
     assert.equal(orderUpdate.commissionAmount, 7);
   } finally {
     process.env.PAYMENT_MODE = originalMode;
-    MockTransaction.findOne = originals.findOne;
+    MockTransaction.findOne = originals.findPayment;
+    SellerPayoutAccount.findOne = originals.findAccount;
     AuditService.record = originals.audit;
   }
 });

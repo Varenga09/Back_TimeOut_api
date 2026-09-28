@@ -12,7 +12,9 @@
     "migrate:undo:all": "npx sequelize-cli db:migrate:undo:all",
     "seed": "npx sequelize-cli db:seed:all",
     "seed:undo": "npx sequelize-cli db:seed:undo:all",
-    "test": "node --test"
+    "test": "node --test",
+    "test:integration": "node scripts/run-integration-tests.js",
+    "lint": "eslint ."
   },
   "keywords": [
     "nodejs",
@@ -44,6 +46,7 @@
     "sequelize": "^6.37.8"
   },
   "devDependencies": {
+    "eslint": "^9.39.5",
     "nodemon": "^3.1.0",
     "sequelize-cli": "^6.6.2"
   },

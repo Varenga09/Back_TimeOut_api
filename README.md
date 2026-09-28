@@ -168,6 +168,18 @@ O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada,
 
 Para manter a aplicacao sem cobrancas reais, nao altere `PAYMENT_MODE` para `live`.
 
+## Decisão pendente: pagamentos fora da plataforma
+
+O comportamento de dinheiro, cartão presencial, pagamento combinado com o vendedor, Pix e cartão online foi preservado nesta rodada. A regra definitiva depende de uma decisão de produto em reunião. As alternativas que precisam ser avaliadas são:
+
+- Permitir pagamentos externos e cobrar comissão acumulada.
+- Não cobrar comissão automática nesses pagamentos.
+- Restringir pagamentos externos em determinados planos.
+- Aceitar somente pagamentos intermediados.
+- Criar regras diferentes por forma de pagamento.
+
+Nenhuma dessas opções foi escolhida ou aplicada ao fluxo atual.
+
 ## Permissoes e aprovacoes internas
 
 O TimeOut possui quatro perfis: `customer`, `seller`, `environment_admin` e `platform_admin`. O cadastro publico sempre cria um cliente. Vendedores sao aprovados por um administrador do mesmo ambiente, enquanto novos ambientes e seus administradores sao aprovados exclusivamente pela equipe TimeOut.
@@ -366,6 +378,22 @@ Criar tabelas:
 ```bash
 npm run migrate
 ```
+
+### Testes integrados e de concorrencia
+
+Use exclusivamente um banco de testes vazio. O comando recria apenas o banco cujo nome recebe o sufixo `_test`, executa as migrations até a versão anterior ao reforço, insere uma fixture legada, conclui a migração e roda concorrência real com bloqueios do Sequelize:
+
+```powershell
+$env:NODE_ENV="test"
+$env:DB_HOST="127.0.0.1"
+$env:DB_PORT="3306"
+$env:DB_USER="root"
+$env:DB_PASSWORD="senha_do_banco_de_teste"
+$env:DB_NAME="timeout_integration"
+npm run test:integration
+```
+
+Nesse exemplo, somente `timeout_integration_test` é recriado. O comando nunca deve apontar para o banco de desenvolvimento ou produção.
 
 Desfazer ultima migration:
 
@@ -582,10 +610,11 @@ POST http://localhost:3001/api/v1/environments
 {
   "name": "Escola Tecnica SENAI",
   "type": "school",
-  "accessCode": "SENAI2026",
   "address": "Taubate - SP"
 }
 ```
+
+O código completo é gerado pelo servidor e aparece somente na resposta de criação ou rotação. Consultas posteriores retornam apenas uma prévia mascarada, como `****A1B2`.
 
 ### Entrar em ambiente
 
@@ -756,10 +785,13 @@ Com `PAYMENT_MODE=mock`, use estas rotas autenticadas:
 | GET | `/payments/admin/overview` | Admin do ambiente |
 | PATCH | `/payments/admin/accounts/:sellerId/status` | Admin do ambiente |
 | GET | `/payments/platform/overview` | Equipe TimeOut |
+| POST | `/payments/admin/orders/:id/retry-settlement` | Admin do ambiente ou equipe TimeOut |
 
 O corpo da conexao contem somente `responsibleName`, `storeName` e `acceptedTestTerms=true`. Chave Pix, agencia, conta, senha, cartao e outros dados bancarios sao rejeitados.
 
 Fluxo: `pending -> approved -> held -> settled`. Antes da entrega, cancelamento ou recusa gera `refunded`. Transacoes recusadas ou reembolsadas nao produzem comissao. Tentativas duplicadas ficam bloqueadas e auditadas.
+
+Se a conta de recebimento estiver pendente, suspensa ou desconectada no momento da entrega, o pedido permanece entregue e o pagamento permanece reservado. Somente um administrador autorizado pode repetir a liquidação depois da reativação da conta.
 
 Pagamentos online usam Mercado Pago:
 
