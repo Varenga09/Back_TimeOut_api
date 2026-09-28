@@ -16,7 +16,12 @@ const sellerIdParamSchema = Joi.object({
   sellerId: Joi.number().integer().positive().required(),
 });
 
+const simulatePaymentSchema = Joi.object({
+  status: Joi.string().valid('approved', 'pending', 'declined').required(),
+});
+
 module.exports = {
   updatePaymentSettingsSchema,
   sellerIdParamSchema,
+  simulatePaymentSchema,
 };

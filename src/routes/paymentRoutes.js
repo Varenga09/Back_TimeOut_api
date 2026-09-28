@@ -7,6 +7,7 @@ const { idParamSchema } = require('../validations/commonValidation');
 const {
   updatePaymentSettingsSchema,
   sellerIdParamSchema,
+  simulatePaymentSchema,
 } = require('../validations/paymentValidation');
 
 const router = Router();
@@ -25,5 +26,6 @@ router.get(
   PaymentController.getSellerSettings
 );
 router.post('/orders/:id/retry', validateMiddleware(idParamSchema, 'params'), PaymentController.retryPayment);
+router.post('/orders/:id/simulate', validateMiddleware(idParamSchema, 'params'), validateMiddleware(simulatePaymentSchema), PaymentController.simulate);
 
 module.exports = router;

@@ -21,6 +21,10 @@ const UserEnvironment = require('./UserEnvironment')(sequelize);
 const Coupon = require('./Coupon')(sequelize);
 const PaymentSetting = require('./PaymentSetting')(sequelize);
 const PaymentTransaction = require('./PaymentTransaction')(sequelize);
+const Plan = require('./Plan')(sequelize);
+const Subscription = require('./Subscription')(sequelize);
+const SellerRequest = require('./SellerRequest')(sequelize);
+const MockTransaction = require('./MockTransaction')(sequelize);
 
 const models = {
   Environment,
@@ -34,6 +38,10 @@ const models = {
   Coupon,
   PaymentSetting,
   PaymentTransaction,
+  Plan,
+  Subscription,
+  SellerRequest,
+  MockTransaction,
 };
 
 Object.values(models).forEach((model) => {

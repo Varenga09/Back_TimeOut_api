@@ -79,6 +79,12 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 0,
       },
+      grossSalesAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+      commissionRate: { type: DataTypes.DECIMAL(5, 2), allowNull: false, defaultValue: 0 },
+      commissionAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+      sellerNetRevenue: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
+      commissionConfirmedAt: { type: DataTypes.DATE, allowNull: true },
+      isPaymentSimulated: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
       paymentMethod: {
         type: DataTypes.ENUM(
           'cash',
@@ -153,6 +159,12 @@ module.exports = (sequelize) => {
     Order.hasMany(models.PaymentTransaction, {
       foreignKey: 'orderId',
       as: 'paymentTransactions',
+      onDelete: 'CASCADE',
+    });
+
+    Order.hasMany(models.MockTransaction, {
+      foreignKey: 'orderId',
+      as: 'mockTransactions',
       onDelete: 'CASCADE',
     });
   };

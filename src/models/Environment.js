@@ -27,6 +27,7 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(255),
         allowNull: true,
       },
+      institutionalPlanConfig: { type: DataTypes.JSON, allowNull: true },
     },
     {
       tableName: 'environments',
@@ -69,6 +70,10 @@ module.exports = (sequelize) => {
       foreignKey: 'environmentId',
       as: 'paymentTransactions',
     });
+
+    Environment.hasMany(models.Subscription, { foreignKey: 'environmentId', as: 'subscriptions' });
+    Environment.hasMany(models.SellerRequest, { foreignKey: 'environmentId', as: 'sellerRequests' });
+    Environment.hasMany(models.MockTransaction, { foreignKey: 'environmentId', as: 'mockTransactions' });
   };
 
   return Environment;

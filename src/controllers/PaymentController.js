@@ -46,6 +46,15 @@ class PaymentController {
       return next(error);
     }
   }
+
+  async simulate(req, res, next) {
+    try {
+      const result = await PaymentService.simulatePayment(req.params.id, req.body.status, req.user);
+      return successResponse(res, result, 'Pagamento simulado atualizado');
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 module.exports = new PaymentController();

@@ -4,8 +4,9 @@ const CouponRepository = require('../repositories/CouponRepository');
 const ProductRepository = require('../repositories/ProductRepository');
 const UserRepository = require('../repositories/UserRepository');
 const AppError = require('../utils/AppError');
-const { calculatePlatformFee } = require('../utils/platformFee');
+const { calculateCommission } = require('../utils/platformFee');
 const PaymentService = require('./PaymentService');
+const PlanService = require('./PlanService');
 
 const finalStatuses = ['delivered', 'canceled', 'refused'];
 const sellerStatusFlow = ['accepted', 'preparing', 'ready', 'delivered', 'refused'];
@@ -30,6 +31,7 @@ class OrderService {
       requester.environmentId,
       data.paymentMethod
     );
+    const subscription = await PlanService.ensureBasicSubscription(data.sellerId, requester.environmentId);
 
     const groupedItems = this.groupItems(data.items);
 
@@ -84,7 +86,7 @@ class OrderService {
         totalPrice,
         transaction,
       });
-      const platformFee = calculatePlatformFee(couponResult.finalTotal);
+      const commissionRate = Number(subscription.commissionRate);
 
       const order = await OrderRepository.create(
         {
@@ -96,12 +98,18 @@ class OrderService {
           couponId: couponResult.coupon?.id || null,
           couponCode: couponResult.coupon?.code || null,
           couponDiscount: couponResult.discount,
-          platformFeeRate: platformFee.rate,
-          platformFeeAmount: platformFee.amount,
-          sellerNetAmount: platformFee.sellerNetAmount,
+          platformFeeRate: commissionRate,
+          platformFeeAmount: 0,
+          sellerNetAmount: 0,
+          grossSalesAmount: couponResult.finalTotal,
+          commissionRate,
+          commissionAmount: 0,
+          sellerNetRevenue: 0,
+          commissionConfirmedAt: null,
+          isPaymentSimulated: PaymentService.isMockMode(),
           paymentMethod: data.paymentMethod,
-          paymentStatus: PaymentService.isOnlinePayment(data.paymentMethod) ? 'awaiting_payment' : 'not_required',
-          paymentProvider: PaymentService.isOnlinePayment(data.paymentMethod) ? 'mercado_pago' : 'manual',
+          paymentStatus: PaymentService.requiresPayment(data.paymentMethod) ? 'awaiting_payment' : 'not_required',
+          paymentProvider: PaymentService.isMockMode() ? 'mock' : PaymentService.isOnlinePayment(data.paymentMethod) ? 'mercado_pago' : 'manual',
           deliveryType: data.deliveryType,
           deliveryLocation: data.deliveryLocation,
           observation: data.observation,
@@ -322,7 +330,7 @@ class OrderService {
 
     if (
       status !== 'refused' &&
-      PaymentService.isOnlinePayment(order.paymentMethod) &&
+      PaymentService.requiresConfirmedPayment(order) &&
       order.paymentStatus !== 'paid'
     ) {
       throw new AppError('Confirme o pagamento antes de avançar o pedido', 400);
@@ -334,7 +342,27 @@ class OrderService {
       }
 
       const orderToUpdate = await order.reload({ transaction });
-      await orderToUpdate.update({ status }, { transaction });
+      const updateData = { status };
+      if (status === 'delivered') {
+        const commission = calculateCommission(orderToUpdate.grossSalesAmount, orderToUpdate.commissionRate);
+        Object.assign(updateData, {
+          commissionAmount: commission.amount,
+          sellerNetRevenue: commission.sellerNetAmount,
+          commissionConfirmedAt: new Date(),
+          platformFeeAmount: commission.amount,
+          sellerNetAmount: commission.sellerNetAmount,
+        });
+      }
+      if (status === 'refused') {
+        Object.assign(updateData, {
+          commissionAmount: 0,
+          sellerNetRevenue: 0,
+          commissionConfirmedAt: null,
+          platformFeeAmount: 0,
+          sellerNetAmount: 0,
+        });
+      }
+      await orderToUpdate.update(updateData, { transaction });
     });
 
     return OrderRepository.findById(id);
@@ -358,7 +386,14 @@ class OrderService {
     await sequelize.transaction(async (transaction) => {
       await this.restoreStock(order.id, transaction);
       const orderToUpdate = await order.reload({ transaction });
-      await orderToUpdate.update({ status: 'canceled' }, { transaction });
+      await orderToUpdate.update({
+        status: 'canceled',
+        commissionAmount: 0,
+        sellerNetRevenue: 0,
+        commissionConfirmedAt: null,
+        platformFeeAmount: 0,
+        sellerNetAmount: 0,
+      }, { transaction });
     });
 
     return OrderRepository.findById(id);

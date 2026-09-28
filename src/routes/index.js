@@ -8,6 +8,7 @@ const paymentRoutes = require('./paymentRoutes');
 const productRoutes = require('./productRoutes');
 const sellerRoutes = require('./sellerRoutes');
 const userRoutes = require('./userRoutes');
+const planRoutes = require('./planRoutes');
 const { successResponse } = require('../utils/response');
 
 const router = Router();
@@ -20,7 +21,7 @@ router.get('/', (req, res) => {
       version: '1.0.0',
       status: 'online',
       basePath: '/api/v1',
-      endpoints: ['/auth', '/environments', '/users', '/sellers', '/products', '/categories', '/coupons', '/orders', '/payments'],
+      endpoints: ['/auth', '/environments', '/users', '/sellers', '/products', '/categories', '/coupons', '/orders', '/payments', '/plans'],
     },
     'LocalFood API online'
   );
@@ -47,5 +48,6 @@ router.use('/categories', categoryRoutes);
 router.use('/coupons', couponRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/plans', planRoutes);
 
 module.exports = router;

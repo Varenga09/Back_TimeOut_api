@@ -14,6 +14,7 @@ router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
 
 router.post('/request', privilegeLimiter, validateMiddleware(requestSellerSchema), SellerController.requestProfile);
+router.get('/requests', roleMiddleware('admin'), SellerController.listRequests);
 router.patch(
   '/:id/approve',
   roleMiddleware('admin'),
@@ -25,6 +26,12 @@ router.patch(
   roleMiddleware('admin'),
   validateMiddleware(idParamSchema, 'params'),
   SellerController.block
+);
+router.patch(
+  '/:id/reject',
+  roleMiddleware('admin'),
+  validateMiddleware(idParamSchema, 'params'),
+  SellerController.reject
 );
 
 module.exports = router;

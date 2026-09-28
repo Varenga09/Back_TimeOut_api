@@ -36,7 +36,7 @@ Uma plataforma simples onde:
 - O cliente ve apenas vendedores e produtos daquele ambiente.
 - O vendedor cadastra produtos, estoque e preco.
 - O cliente faz pedidos e acompanha status.
-- O pagamento pode ser online via Pix/cartao ou combinado diretamente com o vendedor.
+- Nesta fase experimental, o pagamento e simulado para validar o fluxo sem cobrar dinheiro real.
 - A entrega ou retirada acontece dentro do proprio ambiente.
 
 ### Publico-alvo
@@ -64,6 +64,10 @@ O LocalFood nao precisa de entregador externo e nao disputa com apps grandes de 
 - Devolucao de estoque se pedido for cancelado ou recusado.
 - Status do pedido.
 - Filtros e paginacao.
+- Solicitacao e aprovacao administrativa de vendedores.
+- Planos Basico, Pro e Institucional em modo experimental.
+- Comissao de 7% no Basico e 3% no Pro, confirmada somente na entrega.
+- Painel financeiro separado por vendedor e ambiente.
 
 ### Melhorias futuras
 
@@ -138,7 +142,26 @@ local_food_db
 - `products`
 - `orders`
 - `order_items`
+- `plans`
+- `subscriptions`
+- `seller_requests`
+- `mock_transactions`
 - `SequelizeMeta`
+
+## Monetizacao experimental
+
+O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada e o checkout oferece respostas simuladas de pagamento aprovado, pendente ou recusado.
+
+- Cadastro novo sempre cria um cliente gratuito.
+- O cliente informa um CPF valido e envia uma solicitacao para vender.
+- Apenas um administrador do mesmo ambiente pode aprovar ou rejeitar a solicitacao.
+- Ao ser aprovado, o vendedor recebe automaticamente o plano Basico.
+- Basico: mensalidade R$ 0,00 e comissao de 7%.
+- Pro: mensalidade simulada de R$ 19,90 e comissao de 3%.
+- Institucional: configuracao experimental a partir de R$ 99,00.
+- A comissao e a receita liquida sao gravadas somente quando o pedido chega a `delivered`.
+
+Para manter a aplicacao sem cobrancas reais, nao altere `PAYMENT_MODE` para `live`.
 
 ### Relacionamentos
 

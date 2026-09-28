@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const { sequelize, Order } = require('../models');
+const { sequelize, Order, MockTransaction } = require('../models');
 const OrderRepository = require('../repositories/OrderRepository');
 const PaymentSettingRepository = require('../repositories/PaymentSettingRepository');
 const PaymentTransactionRepository = require('../repositories/PaymentTransactionRepository');
@@ -20,8 +20,24 @@ const paymentMethodFields = {
 };
 
 class PaymentService {
+  getMode() {
+    return process.env.PAYMENT_MODE === 'live' ? 'live' : 'mock';
+  }
+
+  isMockMode() {
+    return this.getMode() === 'mock';
+  }
+
   isOnlinePayment(method) {
     return onlinePaymentMethods.includes(method);
+  }
+
+  requiresPayment(method) {
+    return this.isMockMode() || this.isOnlinePayment(method);
+  }
+
+  requiresConfirmedPayment(order) {
+    return order.paymentProvider === 'mock' || this.isOnlinePayment(order.paymentMethod);
   }
 
   async getMySettings(requester) {
@@ -73,6 +89,21 @@ class PaymentService {
 
   async createPaymentForOrder(orderId) {
     const order = await OrderRepository.findById(orderId);
+    if (order && this.isMockMode()) {
+      const existing = await MockTransaction.findOne({ where: { orderId: order.id }, order: [['createdAt', 'DESC']] });
+      if (existing) return existing;
+      return MockTransaction.create({
+        orderId: order.id,
+        customerId: order.customerId,
+        sellerId: order.sellerId,
+        environmentId: order.environmentId,
+        paymentMethod: order.paymentMethod,
+        status: 'pending',
+        amount: Number(order.totalPrice),
+        simulatedAt: new Date(),
+        isSimulated: true,
+      });
+    }
     if (!order || !this.isOnlinePayment(order.paymentMethod)) {
       return null;
     }
@@ -145,7 +176,7 @@ class PaymentService {
       throw new AppError('Apenas o cliente pode gerar pagamento deste pedido', 403);
     }
 
-    if (!this.isOnlinePayment(order.paymentMethod)) {
+    if (!this.isMockMode() && !this.isOnlinePayment(order.paymentMethod)) {
       throw new AppError('Este pedido não usa pagamento online', 400);
     }
 
@@ -156,7 +187,47 @@ class PaymentService {
     return this.createPaymentForOrder(order.id);
   }
 
+  async simulatePayment(orderId, status, requester) {
+    if (!this.isMockMode()) {
+      throw new AppError('Simulação indisponível fora do ambiente de teste', 400);
+    }
+    const order = await OrderRepository.findById(orderId);
+    if (!order || Number(order.environmentId) !== Number(requester.environmentId)) {
+      throw new AppError('Pedido não encontrado', 404);
+    }
+    const isCustomer = Number(order.customerId) === Number(requester.id);
+    const isSeller = Number(order.sellerId) === Number(requester.id);
+    if (!isCustomer && !isSeller && requester.role !== 'admin') {
+      throw new AppError('Você não pode simular o pagamento deste pedido', 403);
+    }
+    const transaction = await sequelize.transaction(async (dbTransaction) => {
+      const created = await MockTransaction.create({
+        orderId: order.id,
+        customerId: order.customerId,
+        sellerId: order.sellerId,
+        environmentId: order.environmentId,
+        paymentMethod: order.paymentMethod,
+        status,
+        amount: Number(order.totalPrice),
+        simulatedAt: new Date(),
+        isSimulated: true,
+      }, { transaction: dbTransaction });
+      const paymentStatus = status === 'approved' ? 'paid' : status === 'declined' ? 'failed' : 'awaiting_payment';
+      await Order.update({
+        paymentStatus,
+        paymentProvider: 'mock',
+        isPaymentSimulated: true,
+        paidAt: status === 'approved' ? new Date() : null,
+      }, { where: { id: order.id }, transaction: dbTransaction });
+      return created;
+    });
+    return { transaction, order: await OrderRepository.findById(order.id), paymentMode: 'mock' };
+  }
+
   async handleMercadoPagoWebhook(payload, query = {}, headers = {}) {
+    if (this.isMockMode()) {
+      return { received: true, ignored: true, reason: 'PAYMENT_MODE_MOCK' };
+    }
     this.verifyMercadoPagoSignature(payload, query, headers);
 
     const providerPaymentId =
@@ -299,6 +370,8 @@ class PaymentService {
       acceptsCardInPerson: settings.acceptsCardInPerson,
       acceptsArrangeWithSeller: settings.acceptsArrangeWithSeller,
       isActive: settings.isActive,
+      paymentMode: this.getMode(),
+      isSimulated: this.isMockMode(),
     };
   }
 

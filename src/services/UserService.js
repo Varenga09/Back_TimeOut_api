@@ -4,6 +4,7 @@ const EnvironmentRepository = require('../repositories/EnvironmentRepository');
 const AppError = require('../utils/AppError');
 const { generateEmailCode, getEmailCodeExpiresAt, hashSecurityCode } = require('../utils/security');
 const MailService = require('./MailService');
+const PlanService = require('./PlanService');
 
 function removeUndefined(data) {
   return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
@@ -116,6 +117,9 @@ class UserService {
 
     if (adminSameEnvironment && data.role) {
       await UserEnvironmentRepository.upsert(id, requester.environmentId, data.role);
+      if (data.role === 'seller') {
+        await PlanService.ensureBasicSubscription(id, requester.environmentId);
+      }
       return UserRepository.findById(id);
     }
 

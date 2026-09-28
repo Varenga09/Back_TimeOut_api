@@ -16,6 +16,14 @@ class UserEnvironmentRepository {
     });
   }
 
+  async listSellerIds(environmentId) {
+    const memberships = await UserEnvironment.findAll({
+      where: { environmentId, role: 'seller' },
+      attributes: ['userId'],
+    });
+    return memberships.map((membership) => membership.userId);
+  }
+
   async listUsers(environmentId, { role, search, limit, offset } = {}) {
     const where = { environmentId };
     if (role) where.role = role;

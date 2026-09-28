@@ -171,6 +171,10 @@ module.exports = (sequelize) => {
       as: 'customerPaymentTransactions',
     });
 
+    User.hasMany(models.Subscription, { foreignKey: 'userId', as: 'subscriptions' });
+    User.hasMany(models.SellerRequest, { foreignKey: 'userId', as: 'sellerRequests' });
+    User.hasMany(models.MockTransaction, { foreignKey: 'sellerId', as: 'sellerMockTransactions' });
+
     User.hasMany(models.PaymentTransaction, {
       foreignKey: 'sellerId',
       as: 'sellerPaymentTransactions',

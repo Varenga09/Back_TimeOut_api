@@ -1,4 +1,4 @@
-const { Order, OrderItem, Product, User, Category, Coupon, PaymentTransaction } = require('../models');
+const { Order, OrderItem, Product, User, Category, Coupon, PaymentTransaction, MockTransaction } = require('../models');
 const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 
 const orderIncludes = [
@@ -8,6 +8,12 @@ const orderIncludes = [
   {
     model: PaymentTransaction,
     as: 'paymentTransactions',
+    separate: true,
+    order: [['createdAt', 'DESC']],
+  },
+  {
+    model: MockTransaction,
+    as: 'mockTransactions',
     separate: true,
     order: [['createdAt', 'DESC']],
   },
