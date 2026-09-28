@@ -4,6 +4,10 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const dialect = queryInterface.sequelize.getDialect();
     const q = (name) => queryInterface.quoteIdentifier(name);
+    const tables = (await queryInterface.showAllTables()).map((table) => (
+      typeof table === 'string' ? table : table.tableName || table.name
+    ));
+    const hasIndex = async (table, name) => (await queryInterface.showIndex(table)).some((index) => index.name === name);
     const addEnumValue = async (type, value) => {
       if (dialect === 'postgres') {
         await queryInterface.sequelize.query(`ALTER TYPE "${type}" ADD VALUE IF NOT EXISTS '${value}'`);
@@ -30,7 +34,7 @@ module.exports = {
       });
     }
 
-    await queryInterface.createTable('seller_payout_accounts', {
+    if (!tables.includes('seller_payout_accounts')) await queryInterface.createTable('seller_payout_accounts', {
       id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true, allowNull: false },
       userId: { type: Sequelize.INTEGER, allowNull: false, references: { model: 'users', key: 'id' }, onDelete: 'CASCADE' },
       environmentId: { type: Sequelize.INTEGER, allowNull: false, references: { model: 'environments', key: 'id' }, onDelete: 'CASCADE' },
@@ -45,7 +49,9 @@ module.exports = {
       createdAt: { type: Sequelize.DATE, allowNull: false },
       updatedAt: { type: Sequelize.DATE, allowNull: false },
     });
-    await queryInterface.addIndex('seller_payout_accounts', ['userId', 'environmentId'], { unique: true, name: 'seller_payout_accounts_user_environment_unique' });
+    if (!await hasIndex('seller_payout_accounts', 'seller_payout_accounts_user_environment_unique')) {
+      await queryInterface.addIndex('seller_payout_accounts', ['userId', 'environmentId'], { unique: true, name: 'seller_payout_accounts_user_environment_unique' });
+    }
 
     const transactionColumns = {
       grossAmount: { type: Sequelize.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
@@ -59,10 +65,13 @@ module.exports = {
       idempotencyKey: { type: Sequelize.STRING(100), allowNull: true },
       history: { type: Sequelize.JSON, allowNull: false, defaultValue: [] },
     };
+    const existingTransactionColumns = await queryInterface.describeTable('mock_transactions');
     for (const [name, definition] of Object.entries(transactionColumns)) {
-      await queryInterface.addColumn('mock_transactions', name, definition);
+      if (!existingTransactionColumns[name]) await queryInterface.addColumn('mock_transactions', name, definition);
     }
-    await queryInterface.addIndex('mock_transactions', ['idempotencyKey'], { unique: true, name: 'mock_transactions_idempotency_unique' });
+    if (!await hasIndex('mock_transactions', 'mock_transactions_idempotency_unique')) {
+      await queryInterface.addIndex('mock_transactions', ['idempotencyKey'], { unique: true, name: 'mock_transactions_idempotency_unique' });
+    }
 
     await queryInterface.sequelize.query(`
       UPDATE ${q('mock_transactions')}
