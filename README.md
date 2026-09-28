@@ -150,7 +150,7 @@ local_food_db
 
 ## Monetizacao experimental
 
-O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada e o checkout oferece respostas simuladas de pagamento aprovado, pendente ou recusado.
+O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada e todos os pedidos sao aprovados automaticamente para que os vendedores possam testar o fluxo sem bloqueios.
 
 - Cadastro novo sempre cria um cliente gratuito.
 - O cliente informa um CPF valido e envia uma solicitacao para vender.

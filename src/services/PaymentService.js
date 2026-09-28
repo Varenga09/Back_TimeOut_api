@@ -37,6 +37,7 @@ class PaymentService {
   }
 
   requiresConfirmedPayment(order) {
+    if (this.isMockMode()) return false;
     return order.paymentProvider === 'mock' || this.isOnlinePayment(order.paymentMethod);
   }
 
@@ -90,18 +91,35 @@ class PaymentService {
   async createPaymentForOrder(orderId) {
     const order = await OrderRepository.findById(orderId);
     if (order && this.isMockMode()) {
-      const existing = await MockTransaction.findOne({ where: { orderId: order.id }, order: [['createdAt', 'DESC']] });
-      if (existing) return existing;
-      return MockTransaction.create({
-        orderId: order.id,
-        customerId: order.customerId,
-        sellerId: order.sellerId,
-        environmentId: order.environmentId,
-        paymentMethod: order.paymentMethod,
-        status: 'pending',
-        amount: Number(order.totalPrice),
-        simulatedAt: new Date(),
-        isSimulated: true,
+      return sequelize.transaction(async (transaction) => {
+        const existing = await MockTransaction.findOne({
+          where: { orderId: order.id },
+          order: [['createdAt', 'DESC']],
+          transaction,
+        });
+        const paymentData = {
+          orderId: order.id,
+          customerId: order.customerId,
+          sellerId: order.sellerId,
+          environmentId: order.environmentId,
+          paymentMethod: order.paymentMethod,
+          status: 'approved',
+          amount: Number(order.totalPrice),
+          simulatedAt: new Date(),
+          isSimulated: true,
+        };
+        const mockPayment = existing
+          ? await existing.update(paymentData, { transaction })
+          : await MockTransaction.create(paymentData, { transaction });
+
+        await Order.update({
+          paymentStatus: 'paid',
+          paymentProvider: 'mock',
+          isPaymentSimulated: true,
+          paidAt: new Date(),
+        }, { where: { id: order.id }, transaction });
+
+        return mockPayment;
       });
     }
     if (!order || !this.isOnlinePayment(order.paymentMethod)) {
