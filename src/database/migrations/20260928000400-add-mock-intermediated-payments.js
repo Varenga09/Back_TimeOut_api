@@ -86,10 +86,10 @@ module.exports = {
     `);
     await queryInterface.sequelize.query(`
       UPDATE ${q('mock_transactions')}
-      SET ${q('status')} = CASE
+      SET ${q('status')} = ${dialect === 'postgres' ? '(' : ''}CASE
         WHEN EXISTS (SELECT 1 FROM ${q('orders')} WHERE ${q('orders')}.${q('id')} = ${q('mock_transactions')}.${q('orderId')} AND ${q('orders')}.${q('status')} = 'delivered') THEN 'settled'
         ELSE 'held'
-      END,
+      END${dialect === 'postgres' ? ')::"enum_mock_transactions_status"' : ''},
       ${q('approvedAt')} = COALESCE(${q('simulatedAt')}, ${q('updatedAt')}),
       ${q('heldAt')} = COALESCE(${q('simulatedAt')}, ${q('updatedAt')}),
       ${q('settledAt')} = CASE
@@ -99,7 +99,7 @@ module.exports = {
       WHERE ${q('status')} = 'approved'
     `);
     await queryInterface.sequelize.query(`UPDATE ${q('orders')} SET ${q('paymentStatus')} = 'pending' WHERE ${q('paymentStatus')} = 'awaiting_payment'`);
-    await queryInterface.sequelize.query(`UPDATE ${q('orders')} SET ${q('paymentStatus')} = CASE WHEN ${q('status')} = 'delivered' THEN 'settled' ELSE 'held' END WHERE ${q('paymentStatus')} = 'paid'`);
+    await queryInterface.sequelize.query(`UPDATE ${q('orders')} SET ${q('paymentStatus')} = ${dialect === 'postgres' ? '(' : ''}CASE WHEN ${q('status')} = 'delivered' THEN 'settled' ELSE 'held' END${dialect === 'postgres' ? ')::"enum_orders_paymentStatus"' : ''} WHERE ${q('paymentStatus')} = 'paid'`);
     await queryInterface.sequelize.query(`UPDATE ${q('orders')} SET ${q('paymentStatus')} = 'declined' WHERE ${q('paymentStatus')} = 'failed'`);
   },
 
