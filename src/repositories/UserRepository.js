@@ -15,11 +15,11 @@ const safeUserAttributes = {
 };
 
 const userIncludes = [
-  { model: Environment, as: 'environment' },
+  { model: Environment, as: 'environment', attributes: { exclude: ['accessCode'] } },
   {
     model: UserEnvironment,
     as: 'memberships',
-    include: [{ model: Environment, as: 'environment' }],
+    include: [{ model: Environment, as: 'environment', attributes: { exclude: ['accessCode'] } }],
   },
 ];
 

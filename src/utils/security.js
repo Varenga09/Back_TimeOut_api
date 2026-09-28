@@ -80,12 +80,29 @@ function isValidCpf(value) {
   return firstDigit === Number(cpf[9]) && secondDigit === Number(cpf[10]);
 }
 
+function maskCpf(value) {
+  const cpf = onlyDigits(value);
+  if (cpf.length !== 11) return '***.***.***-**';
+  return `***.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-**`;
+}
+
+function generateEnvironmentAccessCode() {
+  return `TO-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+}
+
+function hashEnvironmentAccessCode(code) {
+  return crypto.createHash('sha256').update(String(code || '').trim().toUpperCase()).digest('hex');
+}
+
 module.exports = {
   generateEmailCode,
   getEmailCodeExpiresAt,
   hashSecurityCode,
   isValidBrazilPhone,
   isValidCpf,
+  maskCpf,
+  generateEnvironmentAccessCode,
+  hashEnvironmentAccessCode,
   onlyDigits,
   securityCodesMatch,
 };

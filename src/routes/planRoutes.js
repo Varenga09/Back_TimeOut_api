@@ -13,8 +13,8 @@ router.use(emailVerifiedMiddleware);
 router.get('/', PlanController.list);
 router.get('/me', roleMiddleware('seller', 'admin'), PlanController.myOverview);
 router.patch('/me', roleMiddleware('seller', 'admin'), validateMiddleware(changePlanSchema), PlanController.changeMine);
-router.get('/admin/overview', roleMiddleware('admin'), PlanController.adminOverview);
-router.patch('/admin/sellers/:id', roleMiddleware('admin'), validateMiddleware(idParamSchema, 'params'), validateMiddleware(changePlanSchema), PlanController.adminChange);
-router.put('/admin/institutional', roleMiddleware('admin'), validateMiddleware(institutionalConfigSchema), PlanController.institutional);
+router.get('/admin/overview', roleMiddleware('admin', 'environment_admin'), PlanController.adminOverview);
+router.patch('/admin/sellers/:id', roleMiddleware('admin', 'environment_admin'), validateMiddleware(idParamSchema, 'params'), validateMiddleware(changePlanSchema), PlanController.adminChange);
+router.put('/admin/institutional', roleMiddleware('admin', 'environment_admin'), validateMiddleware(institutionalConfigSchema), PlanController.institutional);
 
 module.exports = router;

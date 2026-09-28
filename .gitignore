@@ -9,6 +9,7 @@ npm-debug.log*
 uploads/*
 !uploads/.gitkeep
 !uploads/*.svg
+private_documents/
 
 .DS_Store
 Thumbs.db

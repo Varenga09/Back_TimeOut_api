@@ -7,7 +7,7 @@ const emailSchema = Joi.string().trim().lowercase().email({ tlds: { allow: false
 
 const listUsersQuerySchema = Joi.object({
   ...paginationSchema,
-  role: Joi.string().valid('customer', 'seller', 'admin').empty('').optional(),
+  role: Joi.string().valid('customer', 'seller', 'environment_admin').empty('').optional(),
   search: Joi.string().trim().max(120).empty('').optional(),
 });
 
@@ -22,7 +22,6 @@ const updateUserSchema = Joi.object({
   }),
   phone: phoneSchema,
   profileImageUrl: Joi.string().trim().max(255).allow('', null),
-  role: Joi.string().valid('customer', 'seller', 'admin'),
 })
   .min(1)
   .messages({

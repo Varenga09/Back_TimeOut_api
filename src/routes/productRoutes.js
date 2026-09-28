@@ -21,7 +21,7 @@ router.use(emailVerifiedMiddleware);
 
 router.post(
   '/',
-  roleMiddleware('seller', 'admin'),
+  roleMiddleware('seller', 'admin', 'environment_admin'),
   upload.fields([
     { name: 'image', maxCount: 1 },
     { name: 'images', maxCount: 8 },
@@ -40,7 +40,7 @@ router.post(
 router.get('/:id', validateMiddleware(idParamSchema, 'params'), ProductController.getById);
 router.put(
   '/:id',
-  roleMiddleware('seller', 'admin'),
+  roleMiddleware('seller', 'admin', 'environment_admin'),
   validateMiddleware(idParamSchema, 'params'),
   upload.fields([
     { name: 'image', maxCount: 1 },
@@ -51,13 +51,13 @@ router.put(
 );
 router.delete(
   '/:id',
-  roleMiddleware('seller', 'admin'),
+  roleMiddleware('seller', 'admin', 'environment_admin'),
   validateMiddleware(idParamSchema, 'params'),
   ProductController.delete
 );
 router.patch(
   '/:id/status',
-  roleMiddleware('seller', 'admin'),
+  roleMiddleware('seller', 'admin', 'environment_admin'),
   validateMiddleware(idParamSchema, 'params'),
   validateMiddleware(updateProductStatusSchema),
   ProductController.updateStatus

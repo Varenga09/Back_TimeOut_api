@@ -14,22 +14,22 @@ router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
 
 router.post('/request', privilegeLimiter, validateMiddleware(requestSellerSchema), SellerController.requestProfile);
-router.get('/requests', roleMiddleware('admin'), SellerController.listRequests);
+router.get('/requests', roleMiddleware('admin', 'environment_admin'), SellerController.listRequests);
 router.patch(
   '/:id/approve',
-  roleMiddleware('admin'),
+  roleMiddleware('admin', 'environment_admin'),
   validateMiddleware(idParamSchema, 'params'),
   SellerController.approve
 );
 router.patch(
   '/:id/block',
-  roleMiddleware('admin'),
+  roleMiddleware('admin', 'environment_admin'),
   validateMiddleware(idParamSchema, 'params'),
   SellerController.block
 );
 router.patch(
   '/:id/reject',
-  roleMiddleware('admin'),
+  roleMiddleware('admin', 'environment_admin'),
   validateMiddleware(idParamSchema, 'params'),
   SellerController.reject
 );

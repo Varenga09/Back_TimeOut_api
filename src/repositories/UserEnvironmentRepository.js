@@ -18,7 +18,7 @@ class UserEnvironmentRepository {
 
   async listSellerIds(environmentId) {
     const memberships = await UserEnvironment.findAll({
-      where: { environmentId, role: 'seller' },
+      where: { environmentId, role: 'seller', status: 'approved' },
       attributes: ['userId'],
     });
     return memberships.map((membership) => membership.userId);
@@ -66,11 +66,11 @@ class UserEnvironmentRepository {
     return UserEnvironment.create({ userId, environmentId, role });
   }
 
-  async createIfMissing(userId, environmentId, role = 'customer') {
+  async createIfMissing(userId, environmentId, role = 'customer', status = 'approved') {
     const existing = await UserEnvironment.findOne({ where: { userId, environmentId } });
     if (existing) return existing;
 
-    return UserEnvironment.create({ userId, environmentId, role });
+    return UserEnvironment.create({ userId, environmentId, role, status });
   }
 }
 

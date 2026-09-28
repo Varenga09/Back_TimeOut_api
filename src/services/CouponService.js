@@ -1,5 +1,6 @@
 const CouponRepository = require('../repositories/CouponRepository');
 const AppError = require('../utils/AppError');
+const { isEnvironmentAdmin } = require('../utils/permissions');
 
 function normalizeCouponData(data) {
   const normalized = {};
@@ -41,7 +42,7 @@ function normalizeCouponData(data) {
 
 class CouponService {
   async create(data, requester) {
-    if (!['seller', 'admin'].includes(requester.role)) {
+    if (requester.role !== 'seller' && !isEnvironmentAdmin(requester)) {
       throw new AppError('Apenas vendedores podem criar cupons', 403);
     }
 
@@ -56,7 +57,7 @@ class CouponService {
   }
 
   async getAll(query, requester) {
-    if (!['seller', 'admin'].includes(requester.role)) {
+    if (requester.role !== 'seller' && !isEnvironmentAdmin(requester)) {
       throw new AppError('Apenas vendedores podem listar cupons', 403);
     }
 
@@ -92,7 +93,7 @@ class CouponService {
       throw new AppError('Cupom não encontrado', 404);
     }
 
-    if (requester.role !== 'admin' && Number(coupon.userId) !== Number(requester.id)) {
+    if (!isEnvironmentAdmin(requester) && Number(coupon.userId) !== Number(requester.id)) {
       throw new AppError('Você só pode alterar seus próprios cupons', 403);
     }
 

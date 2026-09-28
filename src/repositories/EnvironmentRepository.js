@@ -1,4 +1,5 @@
-const { Environment } = require('../models');
+const { Environment, EnvironmentAccessCode } = require('../models');
+const { hashEnvironmentAccessCode } = require('../utils/security');
 const UserEnvironmentRepository = require('./UserEnvironmentRepository');
 const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 
@@ -26,6 +27,11 @@ class EnvironmentRepository {
   }
 
   async findByAccessCode(accessCode) {
+    const currentCode = await EnvironmentAccessCode.findOne({
+      where: { codeHash: hashEnvironmentAccessCode(accessCode), isActive: true },
+      include: [{ model: Environment, as: 'environment' }],
+    });
+    if (currentCode?.environment) return currentCode.environment;
     return Environment.findOne({ where: { accessCode } });
   }
 

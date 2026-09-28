@@ -28,6 +28,9 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       institutionalPlanConfig: { type: DataTypes.JSON, allowNull: true },
+      isPrivate: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+      status: { type: DataTypes.ENUM('active', 'suspended'), allowNull: false, defaultValue: 'active' },
+      accessCodeEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     },
     {
       tableName: 'environments',
@@ -74,6 +77,9 @@ module.exports = (sequelize) => {
     Environment.hasMany(models.Subscription, { foreignKey: 'environmentId', as: 'subscriptions' });
     Environment.hasMany(models.SellerRequest, { foreignKey: 'environmentId', as: 'sellerRequests' });
     Environment.hasMany(models.MockTransaction, { foreignKey: 'environmentId', as: 'mockTransactions' });
+    Environment.hasMany(models.EnvironmentApplication, { foreignKey: 'environmentId', as: 'applications' });
+    Environment.hasMany(models.AuditLog, { foreignKey: 'environmentId', as: 'auditLogs' });
+    Environment.hasMany(models.EnvironmentAccessCode, { foreignKey: 'environmentId', as: 'accessCodes' });
   };
 
   return Environment;

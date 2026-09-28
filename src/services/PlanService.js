@@ -2,6 +2,8 @@ const { SellerRequest, User, Environment } = require('../models');
 const PlanRepository = require('../repositories/PlanRepository');
 const UserEnvironmentRepository = require('../repositories/UserEnvironmentRepository');
 const AppError = require('../utils/AppError');
+const { isEnvironmentAdmin } = require('../utils/permissions');
+const AuditService = require('./AuditService');
 
 function summarize(orders) {
   return orders.reduce((totals, order) => ({
@@ -90,11 +92,19 @@ class PlanService {
     const environment = await Environment.findByPk(requester.environmentId);
     if (!environment) throw new AppError('Ambiente não encontrado', 404);
     await environment.update({ institutionalPlanConfig: config });
+    await AuditService.record({
+      actorId: requester.id,
+      action: 'environment.institutional_data_updated',
+      resourceType: 'environment',
+      resourceId: environment.id,
+      environmentId: environment.id,
+      summary: 'Dados institucionais e plano do ambiente atualizados',
+    });
     return environment;
   }
 
   ensureAdmin(requester) {
-    if (requester.role !== 'admin') {
+    if (!isEnvironmentAdmin(requester)) {
       throw new AppError('Apenas administradores podem acessar estes dados', 403);
     }
   }

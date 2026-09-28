@@ -25,6 +25,10 @@ const Plan = require('./Plan')(sequelize);
 const Subscription = require('./Subscription')(sequelize);
 const SellerRequest = require('./SellerRequest')(sequelize);
 const MockTransaction = require('./MockTransaction')(sequelize);
+const EnvironmentApplication = require('./EnvironmentApplication')(sequelize);
+const Notification = require('./Notification')(sequelize);
+const AuditLog = require('./AuditLog')(sequelize);
+const EnvironmentAccessCode = require('./EnvironmentAccessCode')(sequelize);
 
 const models = {
   Environment,
@@ -42,6 +46,10 @@ const models = {
   Subscription,
   SellerRequest,
   MockTransaction,
+  EnvironmentApplication,
+  Notification,
+  AuditLog,
+  EnvironmentAccessCode,
 };
 
 Object.values(models).forEach((model) => {

@@ -7,6 +7,7 @@ const AppError = require('../utils/AppError');
 const { calculateCommission } = require('../utils/platformFee');
 const PaymentService = require('./PaymentService');
 const PlanService = require('./PlanService');
+const { isEnvironmentAdmin } = require('../utils/permissions');
 
 const finalStatuses = ['delivered', 'canceled', 'refused'];
 const sellerStatusFlow = ['accepted', 'preparing', 'ready', 'delivered', 'refused'];
@@ -22,7 +23,7 @@ class OrderService {
       throw new AppError('Você não pode comprar seus próprios produtos', 400);
     }
 
-    if (!['seller', 'admin'].includes(seller.role)) {
+    if (seller.role !== 'seller' && !isEnvironmentAdmin(seller)) {
       throw new AppError('O usuário informado não é vendedor', 400);
     }
 
@@ -282,7 +283,7 @@ class OrderService {
   }
 
   async getSellerOrders(query, requester) {
-    if (!['seller', 'admin'].includes(requester.role)) {
+    if (requester.role !== 'seller' && !isEnvironmentAdmin(requester)) {
       throw new AppError('Apenas vendedores podem ver pedidos recebidos', 403);
     }
 
@@ -306,7 +307,7 @@ class OrderService {
     const ownsAsCustomer = Number(order.customerId) === Number(requester.id);
     const ownsAsSeller = Number(order.sellerId) === Number(requester.id);
 
-    if (requester.role !== 'admin' && !ownsAsCustomer && !ownsAsSeller) {
+    if (!isEnvironmentAdmin(requester) && !ownsAsCustomer && !ownsAsSeller) {
       throw new AppError('Você não tem acesso a este pedido', 403);
     }
 
@@ -320,7 +321,7 @@ class OrderService {
 
     const order = await this.getById(id, requester);
 
-    if (requester.role !== 'admin' && Number(order.sellerId) !== Number(requester.id)) {
+    if (!isEnvironmentAdmin(requester) && Number(order.sellerId) !== Number(requester.id)) {
       throw new AppError('Apenas o vendedor do pedido pode atualizar o status', 403);
     }
 

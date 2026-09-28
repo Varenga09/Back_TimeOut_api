@@ -9,6 +9,7 @@ const productRoutes = require('./productRoutes');
 const sellerRoutes = require('./sellerRoutes');
 const userRoutes = require('./userRoutes');
 const planRoutes = require('./planRoutes');
+const accessRoutes = require('./accessRoutes');
 const { successResponse } = require('../utils/response');
 
 const router = Router();
@@ -49,5 +50,6 @@ router.use('/coupons', couponRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/plans', planRoutes);
+router.use('/access', accessRoutes);
 
 module.exports = router;

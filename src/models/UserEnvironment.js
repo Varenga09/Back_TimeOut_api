@@ -18,10 +18,17 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       role: {
-        type: DataTypes.ENUM('customer', 'seller', 'admin'),
+        type: DataTypes.ENUM('customer', 'seller', 'admin', 'environment_admin'),
         allowNull: false,
         defaultValue: 'customer',
       },
+      status: {
+        type: DataTypes.ENUM('pending', 'approved', 'rejected', 'suspended'),
+        allowNull: false,
+        defaultValue: 'approved',
+      },
+      reviewedAt: { type: DataTypes.DATE, allowNull: true },
+      reviewedBy: { type: DataTypes.INTEGER, allowNull: true },
     },
     {
       tableName: 'user_environments',
@@ -39,6 +46,7 @@ module.exports = (sequelize) => {
       foreignKey: 'environmentId',
       as: 'environment',
     });
+    UserEnvironment.belongsTo(models.User, { foreignKey: 'reviewedBy', as: 'reviewer' });
   };
 
   return UserEnvironment;

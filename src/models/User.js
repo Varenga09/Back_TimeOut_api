@@ -78,13 +78,13 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       role: {
-        type: DataTypes.ENUM('customer', 'seller', 'admin'),
+        type: DataTypes.ENUM('customer', 'seller', 'admin', 'environment_admin', 'platform_admin'),
         allowNull: false,
         defaultValue: 'customer',
       },
       environmentId: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         references: {
           model: 'environments',
           key: 'id',
@@ -174,6 +174,9 @@ module.exports = (sequelize) => {
     User.hasMany(models.Subscription, { foreignKey: 'userId', as: 'subscriptions' });
     User.hasMany(models.SellerRequest, { foreignKey: 'userId', as: 'sellerRequests' });
     User.hasMany(models.MockTransaction, { foreignKey: 'sellerId', as: 'sellerMockTransactions' });
+    User.hasMany(models.EnvironmentApplication, { foreignKey: 'userId', as: 'environmentApplications' });
+    User.hasMany(models.Notification, { foreignKey: 'userId', as: 'notifications' });
+    User.hasMany(models.AuditLog, { foreignKey: 'actorId', as: 'auditLogs' });
 
     User.hasMany(models.PaymentTransaction, {
       foreignKey: 'sellerId',

@@ -13,7 +13,7 @@ class EnvironmentController {
 
   async getAll(req, res, next) {
     try {
-      const result = await EnvironmentService.getAll(req.query);
+      const result = await EnvironmentService.getAll(req.query, req.user);
       return successResponse(res, result, 'Ambientes listados com sucesso');
     } catch (error) {
       return next(error);
@@ -31,8 +31,8 @@ class EnvironmentController {
 
   async join(req, res, next) {
     try {
-      const user = await EnvironmentService.join(req.body.accessCode, req.user);
-      return successResponse(res, { user }, 'Você entrou no ambiente com sucesso');
+      const result = await EnvironmentService.join(req.body.accessCode, req.user);
+      return successResponse(res, result, result.pendingApproval ? 'Solicitação de entrada enviada' : 'Você entrou no ambiente com sucesso');
     } catch (error) {
       return next(error);
     }

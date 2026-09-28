@@ -26,7 +26,12 @@ class AuthService {
       throw new AppError('Este e-mail já está em uso', 409);
     }
 
-    const emailVerificationCode = generateEmailCode();
+    if (!environment.accessCodeEnabled || environment.status !== 'active') {
+      throw new AppError('Este ambiente não está aceitando novas entradas', 403);
+    }
+    const mockIdentity = process.env.IDENTITY_VERIFICATION_MODE !== 'live';
+    const emailVerificationCode = mockIdentity ? null : generateEmailCode();
+    const membershipStatus = environment.isPrivate ? 'pending' : 'approved';
 
     const user = await UserRepository.create({
       name,
@@ -34,14 +39,17 @@ class AuthService {
       password,
       phone,
       role: 'customer',
-      environmentId: environment.id,
-      emailVerificationCode: hashSecurityCode(emailVerificationCode),
-      emailVerificationExpiresAt: getEmailCodeExpiresAt(),
+      environmentId: membershipStatus === 'approved' ? environment.id : null,
+      emailVerifiedAt: mockIdentity ? new Date() : null,
+      emailVerificationCode: emailVerificationCode ? hashSecurityCode(emailVerificationCode) : null,
+      emailVerificationExpiresAt: emailVerificationCode ? getEmailCodeExpiresAt() : null,
     });
 
-    await UserEnvironmentRepository.createIfMissing(user.id, environment.id, 'customer');
+    await UserEnvironmentRepository.createIfMissing(user.id, environment.id, 'customer', membershipStatus);
 
-    const deliveryResult = await this.sendVerificationCode(user, emailVerificationCode, 'email');
+    const deliveryResult = mockIdentity
+      ? { sent: true, reason: 'IDENTITY_VERIFICATION_MOCK' }
+      : await this.sendVerificationCode(user, emailVerificationCode, 'email');
 
     return {
       user: await UserRepository.findById(user.id),
@@ -50,6 +58,7 @@ class AuthService {
       verificationChannel: 'email',
       emailSent: deliveryResult.sent,
       emailReason: deliveryResult.reason,
+      membershipStatus,
     };
   }
 
@@ -108,23 +117,26 @@ class AuthService {
 
   async requestPasswordReset(email) {
     const user = await UserRepository.findByEmail(email);
+    const mockIdentity = process.env.IDENTITY_VERIFICATION_MODE !== 'live';
 
     if (user) {
-      const code = generateEmailCode();
+      const code = mockIdentity ? (process.env.LOCAL_VERIFICATION_CODE || '123456') : generateEmailCode();
       const rawUser = await UserRepository.findRawById(user.id);
       await rawUser.update({
         passwordResetCodeHash: hashSecurityCode(code),
         passwordResetExpiresAt: getEmailCodeExpiresAt(),
       });
 
-      await MailService.sendPasswordResetCode({
-        to: user.email,
-        name: user.name,
-        code,
-      });
+      if (!mockIdentity) {
+        await MailService.sendPasswordResetCode({
+          to: user.email,
+          name: user.name,
+          code,
+        });
+      }
     }
 
-    return { accepted: true };
+    return { accepted: true, ...(mockIdentity && { developmentCode: process.env.LOCAL_VERIFICATION_CODE || '123456' }) };
   }
 
   async resetPassword(email, code, password) {

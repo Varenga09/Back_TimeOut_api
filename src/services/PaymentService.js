@@ -7,6 +7,7 @@ const PaymentTransactionRepository = require('../repositories/PaymentTransaction
 const UserRepository = require('../repositories/UserRepository');
 const AppError = require('../utils/AppError');
 const MercadoPagoService = require('./MercadoPagoService');
+const { isEnvironmentAdmin } = require('../utils/permissions');
 
 const onlinePaymentMethods = ['pix', 'credit_card', 'debit_card'];
 
@@ -215,7 +216,7 @@ class PaymentService {
     }
     const isCustomer = Number(order.customerId) === Number(requester.id);
     const isSeller = Number(order.sellerId) === Number(requester.id);
-    if (!isCustomer && !isSeller && requester.role !== 'admin') {
+    if (!isCustomer && !isSeller && !isEnvironmentAdmin(requester)) {
       throw new AppError('Você não pode simular o pagamento deste pedido', 403);
     }
     const transaction = await sequelize.transaction(async (dbTransaction) => {
@@ -394,7 +395,7 @@ class PaymentService {
   }
 
   ensureSeller(requester) {
-    if (!['seller', 'admin'].includes(requester.role)) {
+    if (requester.role !== 'seller' && !isEnvironmentAdmin(requester)) {
       throw new AppError('Apenas vendedores podem configurar pagamentos', 403);
     }
   }

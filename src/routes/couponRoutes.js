@@ -16,7 +16,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
-router.use(roleMiddleware('seller', 'admin'));
+router.use(roleMiddleware('seller', 'admin', 'environment_admin'));
 
 router.post('/', validateMiddleware(createCouponSchema), CouponController.create);
 router.get('/', validateMiddleware(listCouponsQuerySchema, 'query'), CouponController.getAll);

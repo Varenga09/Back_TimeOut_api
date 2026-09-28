@@ -163,6 +163,52 @@ O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada 
 
 Para manter a aplicacao sem cobrancas reais, nao altere `PAYMENT_MODE` para `live`.
 
+## Permissoes e aprovacoes internas
+
+O TimeOut possui quatro perfis: `customer`, `seller`, `environment_admin` e `platform_admin`. O cadastro publico sempre cria um cliente. Vendedores sao aprovados por um administrador do mesmo ambiente, enquanto novos ambientes e seus administradores sao aprovados exclusivamente pela equipe TimeOut.
+
+As solicitacoes possuem historico, justificativas e os estados `pending`, `under_review`, `changes_requested`, `approved`, `rejected`, `suspended` e `revoked`. Entradas em ambientes privados ficam pendentes ate a aprovacao local. Conhecer o codigo de um ambiente nunca concede privilegios.
+
+No modo de demonstracao use:
+
+```env
+IDENTITY_VERIFICATION_MODE=mock
+PAYMENT_MODE=mock
+PRIVATE_UPLOAD_PATH=private_documents
+```
+
+Nesse modo nao ha envio de e-mail ou SMS, validacao externa de identidade nem pagamento real. O codigo local de recuperacao de senha e `123456`, ou o valor definido em `LOCAL_VERIFICATION_CODE`. CPF e validado apenas matematicamente; isso nao comprova a identidade.
+
+Comprovantes de ambiente ficam fora da pasta publica, aceitam somente PDF, JPG e PNG de ate 5 MB e so podem ser abertos por `platform_admin`. Visualizacoes e decisoes sensiveis geram registros de auditoria.
+
+### Contas de desenvolvimento
+
+Depois de executar `npm run seed` fora de producao, as contas abaixo usam a senha `TimeOutDev#2026`:
+
+| Perfil | E-mail |
+| --- | --- |
+| Cliente | `cliente@timeout.local` |
+| Vendedor pendente | `pendente@timeout.local` |
+| Administrador do ambiente | `admin.ambiente@timeout.local` |
+| Equipe TimeOut | `platform@timeout.local` |
+
+Essas credenciais sao exclusivamente locais e o seeder nao cria essas contas quando `NODE_ENV=production`.
+
+### Roteiro de teste
+
+1. Rode `npm run migrate` e `npm run seed`.
+2. Entre como cliente, abra Solicitações e envie um pedido para vender.
+3. Entre como administrador do ambiente e aprove, recuse, solicite correcao, suspenda ou reative o vendedor.
+4. Como cliente, envie uma solicitacao de novo ambiente com ou sem comprovante.
+5. Entre como equipe TimeOut, analise a solicitacao e aprove a criacao do ambiente.
+6. Copie o codigo gerado uma unica vez e teste a entrada de outro cliente.
+7. Se o ambiente for privado, aprove a participacao no painel do administrador.
+8. Teste a troca e a desativacao do codigo; o codigo anterior deve parar de funcionar.
+9. Confira as notificacoes no sino do cabecalho e as acoes no historico de auditoria.
+10. Teste compras e vendas normalmente; pagamentos simulados sao aprovados automaticamente.
+
+As migrations sao incrementais e nao removem usuarios, produtos, pedidos ou pagamentos existentes.
+
 ### Relacionamentos
 
 ```txt

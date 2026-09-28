@@ -12,18 +12,18 @@ const router = Router();
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
 
-router.post('/', roleMiddleware('admin'), validateMiddleware(categorySchema), CategoryController.create);
+router.post('/', roleMiddleware('admin', 'environment_admin'), validateMiddleware(categorySchema), CategoryController.create);
 router.get('/', CategoryController.getAll);
 router.put(
   '/:id',
-  roleMiddleware('admin'),
+  roleMiddleware('admin', 'environment_admin'),
   validateMiddleware(idParamSchema, 'params'),
   validateMiddleware(categorySchema),
   CategoryController.update
 );
 router.delete(
   '/:id',
-  roleMiddleware('admin'),
+  roleMiddleware('admin', 'environment_admin'),
   validateMiddleware(idParamSchema, 'params'),
   CategoryController.delete
 );

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { User, Environment, UserEnvironment } = require('../models');
 const AppError = require('../utils/AppError');
 
 const authMiddleware = async (req, res, next) => {
@@ -37,6 +37,15 @@ const authMiddleware = async (req, res, next) => {
 
     if (Number(decoded.tokenVersion || 0) !== Number(user.tokenVersion || 0)) {
       return next(new AppError('Sessão encerrada. Faça login novamente', 401));
+    }
+
+    if (user.environmentId && user.role !== 'platform_admin') {
+      const [environment, membership] = await Promise.all([
+        Environment.findByPk(user.environmentId, { attributes: ['id', 'status'] }),
+        UserEnvironment.findOne({ where: { userId: user.id, environmentId: user.environmentId }, attributes: ['status'] }),
+      ]);
+      if (environment?.status === 'suspended') return next(new AppError('Este ambiente está suspenso', 403));
+      if (membership && membership.status !== 'approved') return next(new AppError('Sua participação neste ambiente não está ativa', 403));
     }
 
     // Usa os dados atuais do banco, mesmo se o token tiver uma role antiga.

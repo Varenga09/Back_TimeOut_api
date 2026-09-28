@@ -2,10 +2,11 @@ const CategoryRepository = require('../repositories/CategoryRepository');
 const ProductRepository = require('../repositories/ProductRepository');
 const ProductReviewRepository = require('../repositories/ProductReviewRepository');
 const AppError = require('../utils/AppError');
+const { isEnvironmentAdmin } = require('../utils/permissions');
 
 class ProductService {
   async create(data, requester, files = null) {
-    if (!['seller', 'admin'].includes(requester.role)) {
+    if (requester.role !== 'seller' && !isEnvironmentAdmin(requester)) {
       throw new AppError('Apenas vendedores podem cadastrar produtos', 403);
     }
 
@@ -63,7 +64,7 @@ class ProductService {
     }
 
     const ownsProduct = Number(product.userId) === Number(requester.id);
-    if (requester.role !== 'admin' && !ownsProduct) {
+    if (!isEnvironmentAdmin(requester) && !ownsProduct) {
       throw new AppError('Você só pode alterar seus próprios produtos', 403);
     }
 
@@ -97,7 +98,7 @@ class ProductService {
     }
 
     const ownsProduct = Number(product.userId) === Number(requester.id);
-    if (requester.role !== 'admin' && !ownsProduct) {
+    if (!isEnvironmentAdmin(requester) && !ownsProduct) {
       throw new AppError('Você só pode remover seus próprios produtos', 403);
     }
 
@@ -112,7 +113,7 @@ class ProductService {
     }
 
     const ownsProduct = Number(product.userId) === Number(requester.id);
-    if (requester.role !== 'admin' && !ownsProduct) {
+    if (!isEnvironmentAdmin(requester) && !ownsProduct) {
       throw new AppError('Você só pode alterar seus próprios produtos', 403);
     }
 

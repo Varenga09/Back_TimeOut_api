@@ -5,6 +5,7 @@ const AppError = require('../utils/AppError');
 const { generateEmailCode, getEmailCodeExpiresAt, hashSecurityCode } = require('../utils/security');
 const MailService = require('./MailService');
 const PlanService = require('./PlanService');
+const { isEnvironmentAdmin } = require('../utils/permissions');
 
 function removeUndefined(data) {
   return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
@@ -12,7 +13,7 @@ function removeUndefined(data) {
 
 class UserService {
   async getAll(query, requester) {
-    if (requester.role !== 'admin') {
+    if (!isEnvironmentAdmin(requester)) {
       throw new AppError('Apenas admins podem listar usuários', 403);
     }
 
@@ -29,7 +30,7 @@ class UserService {
       Boolean(await UserEnvironmentRepository.findOne(user.id, requester.environmentId));
     const ownProfile = Number(user.id) === Number(requester.id);
 
-    if (!ownProfile && (requester.role !== 'admin' || !sameEnvironment)) {
+    if (!ownProfile && (!isEnvironmentAdmin(requester) || !sameEnvironment)) {
       throw new AppError('Você não tem acesso a este usuário', 403);
     }
 
@@ -44,7 +45,7 @@ class UserService {
 
     const ownProfile = Number(user.id) === Number(requester.id);
     const targetMembership = await UserEnvironmentRepository.findOne(id, requester.environmentId);
-    const adminSameEnvironment = requester.role === 'admin' && Boolean(targetMembership);
+    const adminSameEnvironment = isEnvironmentAdmin(requester) && Boolean(targetMembership);
 
     if (!ownProfile && !adminSameEnvironment) {
       throw new AppError('Você não pode atualizar este usuário', 403);
@@ -79,22 +80,24 @@ class UserService {
         }
       : {
           ...data,
+          role: undefined,
           currentPassword: undefined,
           password: ownProfile ? data.password : undefined,
           ...(Number(user.environmentId) !== Number(requester.environmentId) && { role: undefined }),
         };
     const emailChanged = data.email && data.email !== user.email;
     const phoneChanged = data.phone && data.phone !== user.phone;
-    const verificationCode = emailChanged ? generateEmailCode() : null;
+    const mockIdentity = process.env.IDENTITY_VERIFICATION_MODE !== 'live';
+    const verificationCode = emailChanged && !mockIdentity ? generateEmailCode() : null;
 
     const updatedUser = await UserRepository.update(
       id,
       removeUndefined({
         ...allowedData,
         ...(emailChanged && {
-          emailVerifiedAt: null,
-          emailVerificationCode: hashSecurityCode(verificationCode),
-          emailVerificationExpiresAt: getEmailCodeExpiresAt(),
+          emailVerifiedAt: mockIdentity ? new Date() : null,
+          emailVerificationCode: verificationCode ? hashSecurityCode(verificationCode) : null,
+          emailVerificationExpiresAt: verificationCode ? getEmailCodeExpiresAt() : null,
           verificationChannel: 'email',
         }),
         ...(phoneChanged && {
@@ -107,7 +110,7 @@ class UserService {
       })
     );
 
-    if (emailChanged) {
+    if (emailChanged && !mockIdentity) {
       await MailService.sendVerificationCode({
         to: data.email,
         name: updatedUser.name,
@@ -115,40 +118,14 @@ class UserService {
       });
     }
 
-    if (adminSameEnvironment && data.role) {
-      await UserEnvironmentRepository.upsert(id, requester.environmentId, data.role);
-      if (data.role === 'seller') {
-        await PlanService.ensureBasicSubscription(id, requester.environmentId);
-      }
-      return UserRepository.findById(id);
-    }
-
     return updatedUser;
   }
 
   async becomeAdmin(requester, adminCode, currentPassword) {
-    const configuredCode = process.env.ADMIN_INVITE_CODE ||
-      (process.env.NODE_ENV === 'production' ? null : 'LOCALFOOD2026');
-
-    if (!configuredCode) {
-      throw new AppError('Código de administrador não configurado no servidor', 500);
-    }
-
-    if (String(adminCode || '').trim() !== configuredCode) {
-      throw new AppError('Código de administrador inválido', 403);
-    }
-
-
-    const user = await UserRepository.findRawById(requester.id);
-    if (!user || !(await user.comparePassword(currentPassword || ''))) {
-      throw new AppError('Senha atual incorreta', 401);
-    }
-
-    await UserEnvironmentRepository.upsert(requester.id, requester.environmentId, 'admin');
-
-    return UserRepository.update(requester.id, {
-      role: 'admin',
-    });
+    void requester;
+    void adminCode;
+    void currentPassword;
+    throw new AppError('Administradores são aprovados exclusivamente pela equipe interna TimeOut', 403);
   }
 
   async delete(id, requester) {
@@ -157,7 +134,7 @@ class UserService {
       throw new AppError('Usuário não encontrado', 404);
     }
 
-    if (requester.role !== 'admin' || Number(user.environmentId) !== Number(requester.environmentId)) {
+    if (!isEnvironmentAdmin(requester) || Number(user.environmentId) !== Number(requester.environmentId)) {
       throw new AppError('Apenas o admin do ambiente pode deletar usuários', 403);
     }
 
