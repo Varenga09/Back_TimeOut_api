@@ -4,7 +4,7 @@ const test = require('node:test');
 const { MockTransaction, SellerPayoutAccount } = require('../models');
 const PaymentService = require('./PaymentService');
 const AuditService = require('./AuditService');
-const { connectPayoutAccountSchema } = require('../validations/paymentValidation');
+const { connectPayoutAccountSchema, payoutHistoryQuerySchema } = require('../validations/paymentValidation');
 const { isIdempotentMockTransition, resolveMockTransition } = require('../utils/mockPaymentLifecycle');
 
 test('conecta conta simulada sem aceitar dados bancários reais', async () => {
@@ -51,6 +51,23 @@ test('validação rejeita chave Pix, conta e senha bancária', () => {
     });
     assert.ok(error, `${forbiddenField} deveria ser rejeitado`);
   }
+});
+
+test('filtros financeiros tratam campos vazios como ausentes', () => {
+  const { error, value } = payoutHistoryQuerySchema.validate({
+    page: 1,
+    limit: 10,
+    status: '',
+    dateFrom: '',
+    dateTo: '',
+    environmentId: '',
+    order: 'desc',
+  });
+
+  assert.equal(error, undefined);
+  assert.equal(value.dateFrom, undefined);
+  assert.equal(value.dateTo, undefined);
+  assert.equal(value.environmentId, undefined);
 });
 
 test('máquina de estados cobre aprovação, reserva, pendência, recusa e estorno', () => {

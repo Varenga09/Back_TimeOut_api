@@ -41,10 +41,10 @@ const payoutStatusSchema = Joi.object({
 const payoutHistoryQuerySchema = Joi.object({
   ...paginationSchema,
   status: Joi.string().valid('pending', 'approved', 'held', 'settled', 'declined', 'refunded').empty('').optional(),
-  dateFrom: Joi.date().iso().raw().optional(),
-  dateTo: Joi.date().iso().raw().min(Joi.ref('dateFrom')).optional(),
+  dateFrom: Joi.string().isoDate().empty('').optional(),
+  dateTo: Joi.string().isoDate().empty('').min(Joi.ref('dateFrom')).optional(),
   order: Joi.string().valid('asc', 'desc').default('desc'),
-  environmentId: Joi.number().integer().positive().optional(),
+  environmentId: Joi.number().integer().positive().empty('').optional(),
 });
 
 module.exports = {
