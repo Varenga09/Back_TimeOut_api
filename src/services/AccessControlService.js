@@ -172,14 +172,14 @@ class AccessControlService {
     const application = existing
       ? await existing.update({ ...payload, history: appendHistory(existing, 'pending', requester.id, 'Correções enviadas') })
       : await EnvironmentApplication.create({ ...payload, userId: requester.id, history: [{ status: 'pending', actorId: requester.id, at: new Date().toISOString() }] });
-    await NotificationService.create(requester.id, 'Solicitação de ambiente enviada', 'A equipe TimeOut analisará sua solicitação.', 'environment_application', '/access');
+    await NotificationService.create(requester.id, 'Solicitação de ambiente enviada', 'A equipe Time Out analisará sua solicitação.', 'environment_application', '/access');
     await NotificationService.notifyPlatformAdmins('Nova solicitação de ambiente', `${data.institutionName} aguarda análise.`, 'environment_application_review', '/platform');
     await AuditService.record({ actorId: requester.id, action: 'environment_application.created', resourceType: 'environment_application', resourceId: application.id, summary: 'Solicitação de ambiente criada' });
     return sanitizeApplication(application);
   }
 
   async reviewEnvironmentApplication(id, data, requester) {
-    if (!isPlatformAdmin(requester)) throw new AppError('Apenas a equipe interna TimeOut pode revisar ambientes', 403);
+    if (!isPlatformAdmin(requester)) throw new AppError('Apenas a equipe interna Time Out pode revisar ambientes', 403);
     const application = await EnvironmentApplication.findByPk(id);
     if (!application) throw new AppError('Solicitação de ambiente não encontrada', 404);
     if (application.status === 'approved') throw new AppError('Esta solicitação já foi aprovada', 409);
@@ -290,7 +290,7 @@ class AccessControlService {
   }
 
   async getPlatformDashboard(requester) {
-    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe TimeOut', 403);
+    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe Time Out', 403);
     const [applications, environments, administrators, auditLogs] = await Promise.all([
       EnvironmentApplication.findAll({ include: [{ model: User, as: 'applicant', attributes: ['id', 'name', 'email', 'phone'] }, { model: Environment, as: 'environment' }], order: [['createdAt', 'DESC']] }),
       Environment.findAll({ order: [['createdAt', 'DESC']] }),
@@ -306,7 +306,7 @@ class AccessControlService {
   }
 
   async suspendEnvironment(id, suspended, requester) {
-    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe TimeOut', 403);
+    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe Time Out', 403);
     const environment = await Environment.findByPk(id);
     if (!environment) throw new AppError('Ambiente não encontrado', 404);
     await environment.update({ status: suspended ? 'suspended' : 'active' });
@@ -315,7 +315,7 @@ class AccessControlService {
   }
 
   async transferEnvironment(id, userId, requester) {
-    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe TimeOut', 403);
+    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe Time Out', 403);
     const membership = await UserEnvironment.findOne({ where: { userId, environmentId: id, status: 'approved' } });
     if (!membership) throw new AppError('O novo administrador precisa ser participante aprovado', 400);
     await sequelize.transaction(async (transaction) => {
@@ -331,7 +331,7 @@ class AccessControlService {
   }
 
   async suspendAdministrator(id, suspended, requester) {
-    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe TimeOut', 403);
+    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe Time Out', 403);
     const administrator = await User.findByPk(id);
     if (!administrator || !['admin', 'environment_admin'].includes(administrator.role)) {
       throw new AppError('Administrador de ambiente não encontrado', 404);
@@ -354,7 +354,7 @@ class AccessControlService {
       await NotificationService.create(
         administrator.id,
         suspended ? 'Acesso administrativo suspenso' : 'Acesso administrativo reativado',
-        suspended ? 'Seu acesso administrativo foi suspenso pela equipe TimeOut.' : 'Seu acesso administrativo foi reativado pela equipe TimeOut.',
+        suspended ? 'Seu acesso administrativo foi suspenso pela equipe Time Out.' : 'Seu acesso administrativo foi reativado pela equipe Time Out.',
         'environment_admin',
         '/access',
         transaction
@@ -372,7 +372,7 @@ class AccessControlService {
   }
 
   async getEnvironmentApplicationDocument(id, requester) {
-    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe TimeOut', 403);
+    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe Time Out', 403);
     const application = await EnvironmentApplication.findByPk(id);
     if (!application?.documentPath) throw new AppError('Esta solicitação não possui comprovante', 404);
 

@@ -37,7 +37,7 @@ class MailService {
 
     await brevo.transactionalEmails.sendTransacEmail({
       sender: {
-        name: process.env.BREVO_FROM_NAME || process.env.MAIL_APP_NAME || 'TimeOut',
+        name: process.env.BREVO_FROM_NAME || process.env.MAIL_APP_NAME || 'Time Out',
         email: process.env.BREVO_FROM_EMAIL,
       },
       to: [{ email: to, ...(name ? { name } : {}) }],
@@ -108,8 +108,8 @@ class MailService {
       };
     }
 
-    const appName = process.env.MAIL_APP_NAME || 'Local Food';
-    const brandName = appName.replace(/LocalFood/g, 'Local Food');
+    const appName = process.env.MAIL_APP_NAME || 'Time Out';
+    const brandName = appName.replace(/Local\s*Food|TimeOut/gi, 'Time Out');
     const safeBrandName = escapeHtml(brandName);
     const subject = `${brandName} - Código de confirmação`;
     const text = [
@@ -147,7 +147,7 @@ class MailService {
       return { sent: false, reason: 'EMAIL_NOT_CONFIGURED' };
     }
 
-    const appName = process.env.MAIL_APP_NAME || 'TimeOut';
+    const appName = process.env.MAIL_APP_NAME || 'Time Out';
     const safeAppName = escapeHtml(appName);
     const safeName = escapeHtml(name || 'usuário');
     const subject = `${appName} - Recuperação de senha`;

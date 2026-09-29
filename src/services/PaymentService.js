@@ -495,7 +495,7 @@ class PaymentService {
   }
 
   async getPlatformPayoutOverview(requester, query = {}) {
-    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe TimeOut', 403);
+    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe Time Out', 403);
     const scope = query.environmentId ? { environmentId: query.environmentId } : {};
     const [accounts, summary, history] = await Promise.all([
       SellerPayoutAccount.findAll({ where: scope, include: [{ model: User, as: 'seller', attributes: ['id', 'name', 'email'] }], order: [['createdAt', 'DESC']] }),

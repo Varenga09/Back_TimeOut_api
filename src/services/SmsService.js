@@ -62,7 +62,7 @@ class SmsService {
       : normalizedPhone;
 
     const body = [
-      'Olá, somos da equipe do Local Food.',
+      'Olá, somos da equipe do Time Out.',
       `Seu código de verificação é: ${code}`,
       'Esse código expira em alguns minutos.',
       'Se você não fez essa solicitação, ignore esta mensagem.',

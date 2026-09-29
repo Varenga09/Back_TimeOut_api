@@ -11,7 +11,7 @@ async function startServer() {
     console.log('Conexao com o banco de dados estabelecida com sucesso.');
 
     app.listen(PORT, () => {
-      console.log(`LocalFood API rodando em http://localhost:${PORT}`);
+      console.log(`Time Out API rodando em http://localhost:${PORT}`);
       console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
       console.log(`Base URL: http://localhost:${PORT}/api/v1`);
     });

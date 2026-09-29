@@ -1,7 +1,7 @@
 {
-  "name": "local-food-api",
+  "name": "timeout-api",
   "version": "1.0.0",
-  "description": "API RESTful para pedidos locais em ambientes fechados",
+  "description": "API RESTful do Time Out para pedidos locais em ambientes fechados",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -16,15 +16,6 @@
     "test:integration": "node scripts/run-integration-tests.js",
     "lint": "eslint ."
   },
-  "keywords": [
-    "nodejs",
-    "express",
-    "mysql",
-    "sequelize",
-    "jwt",
-    "local-food",
-    "orders"
-  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -54,5 +45,14 @@
     "sequelize": {
       "uuid": "^11.1.1"
     }
-  }
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "mysql",
+    "sequelize",
+    "jwt",
+    "timeout",
+    "orders"
+  ]
 }

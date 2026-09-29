@@ -1,20 +1,12 @@
-# LocalFood API
+# Time Out API
 
 API RESTful para pedidos locais dentro de ambientes fechados, como escolas, empresas, fabricas, faculdades, cursos tecnicos e escritorios.
 
-O projeto resolve uma dor comum: vendas locais feitas por WhatsApp, boca a boca ou grupos informais ficam confusas para vendedores e clientes. O LocalFood organiza ambientes, vendedores, produtos e pedidos em uma plataforma simples, sem tentar concorrer com delivery externo.
+O projeto resolve uma dor comum: vendas locais feitas por WhatsApp, boca a boca ou grupos informais ficam confusas para vendedores e clientes. O Time Out organiza ambientes, vendedores, produtos e pedidos em uma plataforma simples, sem tentar concorrer com delivery externo.
 
-## Nomes sugeridos
+## Identidade do projeto
 
-`LocalFood` e um bom nome inicial. Outras possibilidades:
-
-| Nome | Ideia |
-| --- | --- |
-| PedeLocal | Direto e facil de entender |
-| LancheAqui | Bom para escolas e empresas |
-| Vitrine Local | Foco em vendedores locais |
-| Meu Intervalo | Bom para escolas/faculdades |
-| Entrega Interna | Foco em ambientes fechados |
+A marca apresentada ao usuario e **Time Out**. Pacotes, pastas e outros identificadores tecnicos novos usam `timeout`, sem espacos. Identificadores legados ligados ao banco, seeders, pagamentos, URLs publicadas e deploys sao preservados para manter compatibilidade.
 
 ## Visao do Produto
 
@@ -50,7 +42,7 @@ Uma plataforma simples onde:
 
 ### Diferencial
 
-O LocalFood nao precisa de entregador externo e nao disputa com apps grandes de delivery. Ele e feito para comunidades fechadas, onde cliente e vendedor geralmente ja compartilham o mesmo espaco fisico.
+O Time Out nao precisa de entregador externo e nao disputa com apps grandes de delivery. Ele e feito para comunidades fechadas, onde cliente e vendedor geralmente ja compartilham o mesmo espaco fisico.
 
 ### Funcionalidades principais
 
@@ -101,7 +93,7 @@ O LocalFood nao precisa de entregador externo e nao disputa com apps grandes de 
 ## Estrutura
 
 ```txt
-local-food-api/
+timeout-api/
 |-- src/
 |   |-- config/
 |   |   |-- database.js
@@ -133,6 +125,8 @@ Banco sugerido:
 ```txt
 local_food_db
 ```
+
+O nome `local_food_db` e legado e permanece inalterado para proteger instalacoes e dados existentes. Projetos novos podem adotar outro nome via `DB_NAME`, mas esta reorganizacao nao renomeia bancos em uso.
 
 ### Tabelas
 
@@ -182,7 +176,7 @@ Nenhuma dessas opções foi escolhida ou aplicada ao fluxo atual.
 
 ## Permissoes e aprovacoes internas
 
-O TimeOut possui quatro perfis: `customer`, `seller`, `environment_admin` e `platform_admin`. O cadastro publico sempre cria um cliente. Vendedores sao aprovados por um administrador do mesmo ambiente, enquanto novos ambientes e seus administradores sao aprovados exclusivamente pela equipe TimeOut.
+O Time Out possui quatro perfis: `customer`, `seller`, `environment_admin` e `platform_admin`. O cadastro publico sempre cria um cliente. Vendedores sao aprovados por um administrador do mesmo ambiente, enquanto novos ambientes e seus administradores sao aprovados exclusivamente pela equipe Time Out.
 
 As solicitacoes possuem historico, justificativas e os estados `pending`, `under_review`, `changes_requested`, `approved`, `rejected`, `suspended` e `revoked`. Entradas em ambientes privados ficam pendentes ate a aprovacao local. Conhecer o codigo de um ambiente nunca concede privilegios.
 
@@ -207,7 +201,7 @@ Depois de executar `npm run seed` fora de producao, as contas abaixo usam a senh
 | Cliente | `cliente@timeout.local` |
 | Vendedor pendente | `pendente@timeout.local` |
 | Administrador do ambiente | `admin.ambiente@timeout.local` |
-| Equipe TimeOut | `platform@timeout.local` |
+| Equipe Time Out | `platform@timeout.local` |
 
 Essas credenciais sao exclusivamente locais e o seeder nao cria essas contas quando `NODE_ENV=production`.
 
@@ -217,7 +211,7 @@ Essas credenciais sao exclusivamente locais e o seeder nao cria essas contas qua
 2. Entre como cliente, abra Solicitações e envie um pedido para vender.
 3. Entre como administrador do ambiente e aprove, recuse, solicite correcao, suspenda ou reative o vendedor.
 4. Como cliente, envie uma solicitacao de novo ambiente com ou sem comprovante.
-5. Entre como equipe TimeOut, analise a solicitacao e aprove a criacao do ambiente.
+5. Entre como equipe Time Out, analise a solicitacao e aprove a criacao do ambiente.
 6. Copie o codigo gerado uma unica vez e teste a entrada de outro cliente.
 7. Se o ambiente for privado, aprove a participacao no painel do administrador.
 8. Teste a troca e a desativacao do codigo; o codigo anterior deve parar de funcionar.
@@ -264,7 +258,7 @@ OrderItem belongsTo Product
 Entre na pasta:
 
 ```bash
-cd C:\FatecoinsGPT\local-food-api
+cd C:\TimeOut\timeout-api
 ```
 
 Instale dependencias:
@@ -343,8 +337,8 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=seu_email@gmail.com
 SMTP_PASSWORD=sua_senha_de_app
-MAIL_FROM="LocalFood <seu_email@gmail.com>"
-MAIL_APP_NAME=LocalFood
+MAIL_FROM="Time Out <seu_email@gmail.com>"
+MAIL_APP_NAME=Time Out
 ```
 
 Use `PORT=3001` para nao conflitar com o backend de tarefas que usa `3000`.
@@ -362,8 +356,8 @@ que bloqueia conexoes SMTP de saida.
 ```env
 BREVO_API_KEY=xkeysib-sua-chave
 BREVO_FROM_EMAIL=seu_email@gmail.com
-BREVO_FROM_NAME=TimeOut
-MAIL_APP_NAME=TimeOut
+BREVO_FROM_NAME=Time Out
+MAIL_APP_NAME=Time Out
 ```
 
 O Brevo e o provedor prioritario. SMTP continua disponivel como alternativa para
@@ -780,8 +774,8 @@ Com `PAYMENT_MODE=mock`, use estas rotas autenticadas:
 | POST | `/payments/orders/:id/simulate` | Participantes do pedido/admin do ambiente |
 | GET | `/payments/admin/overview` | Admin do ambiente |
 | PATCH | `/payments/admin/accounts/:sellerId/status` | Admin do ambiente |
-| GET | `/payments/platform/overview` | Equipe TimeOut |
-| POST | `/payments/admin/orders/:id/retry-settlement` | Admin do ambiente ou equipe TimeOut |
+| GET | `/payments/platform/overview` | Equipe Time Out |
+| POST | `/payments/admin/orders/:id/retry-settlement` | Admin do ambiente ou equipe Time Out |
 
 O corpo da conexao contem somente `responsibleName`, `storeName` e `acceptedTestTerms=true`. Chave Pix, agencia, conta, senha, cartao e outros dados bancarios sao rejeitados.
 

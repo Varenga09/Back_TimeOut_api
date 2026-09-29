@@ -18,13 +18,13 @@ router.get('/', (req, res) => {
   return successResponse(
     res,
     {
-      name: 'LocalFood API',
+      name: 'Time Out API',
       version: '1.0.0',
       status: 'online',
       basePath: '/api/v1',
       endpoints: ['/auth', '/environments', '/users', '/sellers', '/products', '/categories', '/coupons', '/orders', '/payments', '/plans'],
     },
-    'LocalFood API online'
+    'Time Out API online'
   );
 });
 

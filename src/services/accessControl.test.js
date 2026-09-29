@@ -71,7 +71,7 @@ test('administrador de outro ambiente não pode revisar solicitação', async ()
   }
 });
 
-test('aprovação de ambiente é exclusiva da equipe TimeOut', async () => {
+test('aprovação de ambiente é exclusiva da equipe Time Out', async () => {
   await assert.rejects(
     AccessControlService.reviewEnvironmentApplication(1, { status: 'approved' }, { id: 1, role: 'environment_admin' }),
     (error) => error.statusCode === 403

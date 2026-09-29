@@ -11,7 +11,7 @@ const { sequelize, Environment, EnvironmentAccessCode } = require('../models');
 class EnvironmentService {
   async create(data, requester = null) {
     if (requester && !isPlatformAdmin(requester)) {
-      throw new AppError('Ambientes são criados somente após aprovação da equipe TimeOut', 403);
+      throw new AppError('Ambientes são criados somente após aprovação da equipe Time Out', 403);
     }
     const accessCode = generateEnvironmentAccessCode();
     const environment = await sequelize.transaction(async (transaction) => {
@@ -44,7 +44,7 @@ class EnvironmentService {
       const environment = await EnvironmentRepository.findById(requester.environmentId);
       return { environments: environment ? [environment] : [], total: environment ? 1 : 0, page: 1, limit: 1, totalPages: 1 };
     }
-    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe TimeOut', 403);
+    if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe Time Out', 403);
     return EnvironmentRepository.findAll(query);
   }
 

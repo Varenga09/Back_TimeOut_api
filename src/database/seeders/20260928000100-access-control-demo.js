@@ -17,7 +17,7 @@ module.exports = {
     const password = await bcrypt.hash('TimeOutDev#2026', 10);
     const now = new Date();
     const demoUsers = [
-      { name: 'Equipe TimeOut', email: 'platform@timeout.local', role: 'platform_admin', environmentId: null, phone: '12999990001' },
+      { name: 'Equipe Time Out', email: 'platform@timeout.local', role: 'platform_admin', environmentId: null, phone: '12999990001' },
       { name: 'Administrador do Ambiente', email: 'admin.ambiente@timeout.local', role: 'environment_admin', environmentId: environment.id, phone: '12999990003' },
       { name: 'Cliente de Teste', email: 'cliente@timeout.local', role: 'customer', environmentId: environment.id, phone: '12999990004' },
       { name: 'Vendedor Pendente', email: 'pendente@timeout.local', role: 'customer', environmentId: environment.id, phone: '12999990002', cpf: '52998224725', cpfVerifiedAt: now },

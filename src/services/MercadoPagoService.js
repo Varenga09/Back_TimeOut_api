@@ -19,7 +19,7 @@ class MercadoPagoService {
     const [firstName, ...lastName] = String(customer?.name || '').split(' ');
     const payload = {
       transaction_amount: Number(order.totalPrice),
-      description: `Pedido #${order.id} - LocalFood`,
+      description: `Pedido #${order.id} - Time Out`,
       payment_method_id: 'pix',
       external_reference: String(order.id),
       notification_url: process.env.MERCADO_PAGO_WEBHOOK_URL || undefined,
@@ -63,7 +63,7 @@ class MercadoPagoService {
         id: String(item.productId),
         title: item.selectedFlavor
           ? `${item.product?.name || 'Produto'} - ${item.selectedFlavor}`
-          : item.product?.name || 'Produto LocalFood',
+          : item.product?.name || 'Produto Time Out',
         quantity: Number(item.quantity),
         unit_price: Number(item.unitPrice),
         currency_id: 'BRL',
