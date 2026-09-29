@@ -381,19 +381,15 @@ npm run migrate
 
 ### Testes integrados e de concorrencia
 
-Use exclusivamente um banco de testes vazio. O comando recria apenas o banco cujo nome recebe o sufixo `_test`, executa as migrations até a versão anterior ao reforço, insere uma fixture legada, conclui a migração e roda concorrência real com bloqueios do Sequelize:
+Inicie o MySQL local antes de executar os testes. O arquivo `.env` do backend deve existir; o comando carrega automaticamente dele `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`. Se o arquivo estiver ausente, a execucao sera interrompida antes de tentar conectar ou alterar qualquer banco.
+
+Ele recria exclusivamente um banco cujo nome e formado pelo valor de `DB_NAME` acrescido de `_test`. Por exemplo, com `DB_NAME=local_food_db`, somente `local_food_db_test` sera apagado e recriado. O executor valida obrigatoriamente o sufixo antes de qualquer operacao destrutiva e nunca apaga o banco principal, de desenvolvimento ou de producao.
+
+Depois disso, executa as migrations ate a versao anterior ao reforco, insere uma fixture legada, conclui a migracao e roda concorrencia real com bloqueios do Sequelize:
 
 ```powershell
-$env:NODE_ENV="test"
-$env:DB_HOST="127.0.0.1"
-$env:DB_PORT="3306"
-$env:DB_USER="root"
-$env:DB_PASSWORD="senha_do_banco_de_teste"
-$env:DB_NAME="timeout_integration"
 npm run test:integration
 ```
-
-Nesse exemplo, somente `timeout_integration_test` é recriado. O comando nunca deve apontar para o banco de desenvolvimento ou produção.
 
 Desfazer ultima migration:
 
