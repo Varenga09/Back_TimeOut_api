@@ -155,7 +155,7 @@ O modo padrao e `PAYMENT_MODE=mock`. Nesse modo, nenhuma cobranca real e criada,
 - Pro: mensalidade simulada de R$ 19,90 e comissao de 3%.
 - Institucional: configuracao experimental a partir de R$ 99,00.
 - O vendedor conecta apenas uma conta ficticia, sem chave Pix ou dados bancarios.
-- O pedido nasce com pagamento `pending`; a simulacao aprovada passa por `approved` e fica `held`.
+- O pedido simulado e aprovado automaticamente e nasce com o valor reservado em `held`, sem aguardar confirmacao externa.
 - A comissao e a receita liquida sao gravadas somente quando o pedido chega a `delivered`, quando a transacao passa para `settled`.
 - Cancelamentos e recusas anteriores a entrega geram `refunded`, devolvem o estoque e nao geram comissao.
 - O percentual do plano e copiado para o pedido e para a transacao, preservando o historico mesmo apos uma troca de plano.
@@ -217,8 +217,8 @@ Essas credenciais sao exclusivamente locais e o seeder nao cria essas contas qua
 8. Teste a troca e a desativacao do codigo; o codigo anterior deve parar de funcionar.
 9. Confira as notificacoes no sino do cabecalho e as acoes no historico de auditoria.
 10. Como vendedor, abra `Recebimentos` e conecte a conta ficticia de testes.
-11. Crie um pedido como cliente e escolha pagamento aprovado, pendente ou recusado.
-12. Confira que o aprovado fica reservado e so e liquidado depois que o vendedor marca o pedido como entregue.
+11. Crie um pedido como cliente e confirme que o pagamento simulado fica automaticamente reservado.
+12. Confira que o valor reservado so e liquidado depois que o vendedor marca o pedido como entregue.
 13. Cancele ou recuse outro pedido e confira o reembolso simulado e a devolucao do estoque.
 
 As migrations sao incrementais e nao removem usuarios, produtos, pedidos ou pagamentos existentes.
@@ -779,7 +779,7 @@ Com `PAYMENT_MODE=mock`, use estas rotas autenticadas:
 
 O corpo da conexao contem somente `responsibleName`, `storeName` e `acceptedTestTerms=true`. Chave Pix, agencia, conta, senha, cartao e outros dados bancarios sao rejeitados.
 
-Fluxo: `pending -> approved -> held -> settled`. Antes da entrega, cancelamento ou recusa gera `refunded`. Transacoes recusadas ou reembolsadas nao produzem comissao. Tentativas duplicadas ficam bloqueadas e auditadas.
+Fluxo normal de testes: `approved -> held -> settled`; a aprovacao e a reserva ocorrem automaticamente na criacao do pedido. A rota de simulacao permanece disponivel para cenarios controlados e dados legados ainda pendentes. Antes da entrega, cancelamento ou recusa gera `refunded`. Transacoes recusadas ou reembolsadas nao produzem comissao. Tentativas duplicadas ficam bloqueadas e auditadas.
 
 Se a conta de recebimento estiver pendente, suspensa ou desconectada no momento da entrega, o pedido permanece entregue e o pagamento permanece reservado. Somente um administrador autorizado pode repetir a liquidação depois da reativação da conta.
 

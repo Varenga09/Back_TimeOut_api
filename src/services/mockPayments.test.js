@@ -97,6 +97,23 @@ test('pagamento reservado não pode regredir para pendente ou recusado', () => {
   assert.throws(() => resolveMockTransition('held', 'decline'), (error) => error.statusCode === 409);
 });
 
+test('novo pagamento simulado é aprovado e reservado automaticamente', () => {
+  const now = new Date('2026-09-28T12:00:00.000Z');
+  const state = PaymentService.buildInitialMockPaymentState({
+    customerId: 7,
+    totalPrice: 20,
+    grossSalesAmount: 20,
+    commissionRate: 7,
+  }, now);
+
+  assert.equal(state.status, 'held');
+  assert.equal(state.platformFeeAmount, 1.4);
+  assert.equal(state.sellerNetAmount, 18.6);
+  assert.equal(state.approvedAt, now);
+  assert.equal(state.heldAt, now);
+  assert.deepEqual(state.history.map((entry) => entry.status), ['approved', 'held']);
+});
+
 test('liquidação usa o percentual salvo na transação mesmo após troca de plano', async () => {
   const originalMode = process.env.PAYMENT_MODE;
   const originals = { findPayment: MockTransaction.findOne, findAccount: SellerPayoutAccount.findOne, audit: AuditService.record };

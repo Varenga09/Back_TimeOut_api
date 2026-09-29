@@ -20,7 +20,7 @@ module.exports = {
       { name: 'Equipe Time Out', email: 'platform@timeout.local', role: 'platform_admin', environmentId: null, phone: '12999990001' },
       { name: 'Administrador do Ambiente', email: 'admin.ambiente@timeout.local', role: 'environment_admin', environmentId: environment.id, phone: '12999990003' },
       { name: 'Cliente de Teste', email: 'cliente@timeout.local', role: 'customer', environmentId: environment.id, phone: '12999990004' },
-      { name: 'Vendedor Pendente', email: 'pendente@timeout.local', role: 'customer', environmentId: environment.id, phone: '12999990002', cpf: '52998224725', cpfVerifiedAt: now },
+      { name: 'Vendedor Pendente', email: 'pendente@timeout.local', role: 'customer', environmentId: environment.id, phone: '12999990002', cpf: '10000000019', cpfVerifiedAt: now },
     ];
     const existing = await queryInterface.sequelize.query(
       'SELECT email FROM users WHERE email IN (:emails)',

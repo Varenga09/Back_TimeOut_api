@@ -48,6 +48,25 @@ class PaymentService {
     return order.paymentProvider === 'mock' || this.isOnlinePayment(order.paymentMethod);
   }
 
+  buildInitialMockPaymentState(order, now = new Date()) {
+    const amounts = calculateCommission(
+      order.grossSalesAmount || order.totalPrice,
+      order.commissionRate
+    );
+
+    return {
+      status: 'held',
+      platformFeeAmount: amounts.amount,
+      sellerNetAmount: amounts.sellerNetAmount,
+      approvedAt: now,
+      heldAt: now,
+      history: [
+        { status: 'approved', at: now.toISOString(), actorId: order.customerId },
+        { status: 'held', at: now.toISOString(), actorId: order.customerId },
+      ],
+    };
+  }
+
   async getMySettings(requester) {
     this.ensureSeller(requester);
     return PaymentSettingRepository.findOrCreateBySeller(requester.id, requester.environmentId);
@@ -122,34 +141,37 @@ class PaymentService {
         if (existing) return existing;
         await this.ensureConnectedPayoutAccount(lockedOrder.sellerId, lockedOrder.environmentId, transaction);
         const now = new Date();
+        const initialState = this.buildInitialMockPaymentState(lockedOrder, now);
         const paymentData = {
           orderId: lockedOrder.id,
           customerId: lockedOrder.customerId,
           sellerId: lockedOrder.sellerId,
           environmentId: lockedOrder.environmentId,
           paymentMethod: lockedOrder.paymentMethod,
-          status: 'pending',
+          status: initialState.status,
           amount: Number(lockedOrder.totalPrice),
           grossAmount: Number(lockedOrder.grossSalesAmount || lockedOrder.totalPrice),
           commissionRate: Number(lockedOrder.commissionRate || 0),
-          platformFeeAmount: 0,
-          sellerNetAmount: 0,
+          platformFeeAmount: initialState.platformFeeAmount,
+          sellerNetAmount: initialState.sellerNetAmount,
           simulatedAt: now,
           isSimulated: true,
           idempotencyKey: `mock-order-${lockedOrder.id}`,
           principalOrderId: lockedOrder.id,
-          history: [{ status: 'pending', at: now.toISOString(), actorId: lockedOrder.customerId }],
+          approvedAt: initialState.approvedAt,
+          heldAt: initialState.heldAt,
+          history: initialState.history,
         };
         const mockPayment = await MockTransaction.create(paymentData, { transaction });
 
         await Order.update({
-          paymentStatus: 'pending',
+          paymentStatus: 'held',
           paymentProvider: 'mock',
           isPaymentSimulated: true,
-          paidAt: null,
+          paidAt: now,
         }, { where: { id: lockedOrder.id }, transaction });
 
-        await AuditService.record({ actorId: lockedOrder.customerId, action: 'mock_payment.created', resourceType: 'order', resourceId: lockedOrder.id, environmentId: lockedOrder.environmentId, summary: 'Pagamento intermediado de teste criado como pendente' }, transaction);
+        await AuditService.record({ actorId: lockedOrder.customerId, action: 'mock_payment.created', resourceType: 'order', resourceId: lockedOrder.id, environmentId: lockedOrder.environmentId, summary: 'Pagamento intermediado de teste aprovado automaticamente e reservado' }, transaction);
 
         return mockPayment;
       };
