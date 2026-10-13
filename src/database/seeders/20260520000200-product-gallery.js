@@ -8,15 +8,15 @@ module.exports = {
   async up(queryInterface) {
     const q = (identifier) => queryInterface.quoteIdentifier(identifier);
     const galleryByProduct = {
-      Coxinha: ['/uploads/coxinha.svg', '/uploads/suco.svg'],
-      'Suco natural': ['/uploads/suco.svg', '/uploads/coxinha.svg'],
+      Coxinha: '/uploads/coxinha.svg',
+      'Suco natural': '/uploads/suco.svg',
     };
 
-    for (const [name, imageGallery] of Object.entries(galleryByProduct)) {
+    for (const [name, imageUrl] of Object.entries(galleryByProduct)) {
       const products = await queryInterface.sequelize.query(
-        'SELECT id FROM products WHERE name = :name LIMIT 1',
+        `SELECT id FROM products WHERE name = :name AND ${q('imageUrl')} = :imageUrl AND ${q('imageGallery')} IS NULL LIMIT 1`,
         {
-          replacements: { name },
+          replacements: { name, imageUrl },
           type: QueryTypes.SELECT,
         }
       );
@@ -27,7 +27,7 @@ module.exports = {
           {
             replacements: {
               id: products[0].id,
-              imageGallery: JSON.stringify(imageGallery),
+              imageGallery: JSON.stringify([]),
               updatedAt: now(),
             },
           }
@@ -36,13 +36,5 @@ module.exports = {
     }
   },
 
-  async down(queryInterface) {
-    const imageGallery = queryInterface.quoteIdentifier('imageGallery');
-    await queryInterface.sequelize.query(
-      `UPDATE products SET ${imageGallery} = NULL WHERE name IN (:names)`,
-      {
-        replacements: { names: ['Coxinha', 'Suco natural'] },
-      }
-    );
-  },
+  async down() {},
 };
