@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const ProductService = require('./ProductService');
 const CategoryRepository = require('../repositories/CategoryRepository');
 const ProductRepository = require('../repositories/ProductRepository');
+const OrderService = require('./OrderService');
 
 test('seller creates separate galleries for products in the same environment', async () => {
   const originalCategory = CategoryRepository.findById;
@@ -108,4 +109,20 @@ test('a different seller cannot change another product flavor photo', async () =
   } finally {
     ProductRepository.findById = originalFind;
   }
+});
+
+test('order resolves only the chosen flavor price and image from its product', () => {
+  const product = {
+    name: 'Suco',
+    imageUrl: '/uploads/suco.jpg',
+    flavors: [
+      { name: 'Laranja', priceAdjustment: 0, imageUrl: '/uploads/laranja.jpg' },
+      { name: 'Maracujá', priceAdjustment: 2, imageUrl: '/uploads/maracuja.jpg' },
+      { name: 'Uva', priceAdjustment: 1 },
+    ],
+  };
+  const passion = OrderService.resolveSelectedOption(product, 'Maracujá');
+  assert.deepEqual(passion, { name: 'Maracujá', priceAdjustment: 2, imageUrl: '/uploads/maracuja.jpg' });
+  assert.equal(OrderService.resolveSelectedOption(product, 'Uva').imageUrl, null);
+  assert.equal(OrderService.resolveSelectedOption(product, null).imageUrl, '/uploads/suco.jpg');
 });
