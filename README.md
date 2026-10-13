@@ -223,6 +223,34 @@ Essas credenciais sao exclusivamente locais e o seeder nao cria essas contas qua
 
 As migrations sao incrementais e nao removem usuarios, produtos, pedidos ou pagamentos existentes.
 
+### Conceder acesso à Equipe Time Out em produção
+
+Contas internas são criadas pelo cadastro normal do site. O e-mail precisa estar confirmado antes da promoção e nenhuma senha é criada ou alterada pelo procedimento abaixo. Não existe endpoint público de promoção.
+
+Configure somente no backend do Render uma variável secreta longa, aleatória e com pelo menos 32 caracteres:
+
+```env
+PLATFORM_ADMIN_BOOTSTRAP_SECRET=
+```
+
+Não use prefixo `VITE_` e não salve o valor no repositório. No Shell seguro do serviço no Render, copie o segredo já configurado para uma variável transitória e consulte primeiro o estado da conta:
+
+```bash
+export PLATFORM_ADMIN_BOOTSTRAP_INPUT="$PLATFORM_ADMIN_BOOTSTRAP_SECRET"
+npm run platform-admin:status -- --email="usuario@exemplo.com" --confirm-production=TIMEOUT_PRODUCTION
+```
+
+Somente se a conta existir e `emailVerified` for `true`, repita a variável transitória e execute a promoção:
+
+```bash
+export PLATFORM_ADMIN_BOOTSTRAP_INPUT="$PLATFORM_ADMIN_BOOTSTRAP_SECRET"
+npm run platform-admin:grant -- --email="usuario@exemplo.com" --confirm-production=TIMEOUT_PRODUCTION
+```
+
+O comando normaliza o e-mail, define somente `role=platform_admin`, remove o ambiente ativo com `environmentId=null`, incrementa a versão de sessão e registra a promoção na auditoria. A versão de sessão encerra tokens emitidos antes da promoção; a pessoa deve sair e entrar novamente para abrir o painel **Equipe Time Out**. Executar o comando novamente é seguro e não duplica a auditoria.
+
+O comando falha fora de produção, sem confirmação explícita, sem segredo válido, para conta inexistente ou para e-mail não confirmado. A saída contém apenas e-mail, função e estado de confirmação; senhas, tokens, hashes e credenciais nunca são impressos.
+
 ### Relacionamentos
 
 ```txt

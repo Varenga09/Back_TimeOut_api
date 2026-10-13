@@ -14,6 +14,8 @@
     "seed:undo": "npx sequelize-cli db:seed:undo:all",
     "test": "node --test",
     "test:integration": "node scripts/run-integration-tests.js",
+    "platform-admin:status": "node scripts/platform-admin-command.js status",
+    "platform-admin:grant": "node scripts/platform-admin-command.js grant",
     "lint": "eslint ."
   },
   "author": "",
