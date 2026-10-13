@@ -65,7 +65,7 @@ test('promove usuário confirmado, normaliza e-mail e invalida sessões anterior
 
     assert.equal(searchedEmail, 'person@timeout.test');
     assert.equal(user.role, 'platform_admin');
-    assert.equal(user.environmentId, null);
+    assert.equal(user.environmentId, 12);
     assert.equal(user.tokenVersion, 4);
     assert.equal(result.sessionsInvalidated, true);
     assert.equal(auditCount, 1);
@@ -94,7 +94,7 @@ test('recusa usuário sem e-mail confirmado', async () => {
 
 test('execução repetida é idempotente e não duplica auditoria', async () => {
   await withStubs(async () => {
-    const user = makeUser({ role: 'platform_admin', environmentId: null });
+    const user = makeUser({ role: 'platform_admin' });
     let auditCount = 0;
     User.findOne = async () => user;
     AuditService.record = async () => { auditCount += 1; };
@@ -136,6 +136,17 @@ test('protege o último administrador interno', async () => {
       /último administrador interno/
     );
   });
+});
+
+test('administrador interno mantém ambiente legado, mas não pode trocá-lo', async () => {
+  const user = User.build({ role: 'platform_admin', environmentId: 12 }, { isNewRecord: false, raw: true });
+  user._previousDataValues = { ...user.dataValues };
+
+  user.set('name', 'Equipe Time Out');
+  await User.runHooks('beforeUpdate', user);
+
+  user.set('environmentId', 13);
+  await assert.rejects(User.runHooks('beforeUpdate', user), /acesso interno/);
 });
 
 test('não existe rota pública de promoção e a saída nunca contém segredo ou senha', () => {

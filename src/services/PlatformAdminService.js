@@ -76,13 +76,12 @@ class PlatformAdminService {
         throw new AppError('O e-mail da conta ainda não foi confirmado', 409);
       }
 
-      if (user.role === 'platform_admin' && user.environmentId === null) {
+      if (user.role === 'platform_admin') {
         return safeAccountResult(user, { changed: false, sessionsInvalidated: false });
       }
 
       await user.update({
         role: 'platform_admin',
-        environmentId: null,
         tokenVersion: Number(user.tokenVersion || 0) + 1,
       }, { transaction });
       await AuditService.record({

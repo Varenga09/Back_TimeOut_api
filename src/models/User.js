@@ -102,7 +102,7 @@ module.exports = (sequelize) => {
         },
         beforeUpdate: async (user) => {
           if (user.previous('role') === 'platform_admin' &&
-            (user.role !== 'platform_admin' || user.environmentId !== null)) {
+            (user.role !== 'platform_admin' || user.changed('environmentId'))) {
             throw new AppError('O acesso interno da equipe Time Out não pode ser alterado por fluxos de ambiente', 403);
           }
           if (user.changed('password')) {

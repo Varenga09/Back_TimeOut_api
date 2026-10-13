@@ -258,7 +258,7 @@ export PLATFORM_ADMIN_BOOTSTRAP_INPUT="$PLATFORM_ADMIN_BOOTSTRAP_SECRET"
 npm run platform-admin:grant -- --email="usuario@exemplo.com" --confirm-production=TIMEOUT_PRODUCTION
 ```
 
-O comando normaliza o e-mail, define somente `role=platform_admin`, remove o ambiente ativo com `environmentId=null`, incrementa a versão de sessão e registra a promoção na auditoria. A versão de sessão encerra tokens emitidos antes da promoção; a pessoa deve sair e entrar novamente para abrir o painel **Equipe Time Out**. Executar o comando novamente é seguro e não duplica a auditoria.
+O comando normaliza o e-mail, define `role=platform_admin`, preserva o `environmentId` existente para manter compatibilidade com bancos legados que exigem esse campo, incrementa a versão de sessão e registra a promoção na auditoria. O acesso interno usa a funcao, sem ficar limitado ao ambiente legado. A versão de sessão encerra tokens emitidos antes da promoção; a pessoa deve sair e entrar novamente para abrir o painel **Equipe Time Out**. Executar o comando novamente é seguro e não duplica a auditoria.
 
 O comando falha fora de produção, sem confirmação explícita, sem segredo válido, para conta inexistente ou para e-mail não confirmado. A saída contém apenas e-mail, função e estado de confirmação; senhas, tokens, hashes e credenciais nunca são impressos.
 
