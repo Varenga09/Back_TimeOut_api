@@ -170,14 +170,16 @@ class ProductService {
       throw new AppError('Produto não encontrado', 404);
     }
 
-    const [reviews, summary] = await Promise.all([
-      ProductReviewRepository.findByProductId(id),
-      ProductReviewRepository.getSummary(id),
-    ]);
+    const reviews = await ProductReviewRepository.findByProductId(id);
+    const reviewsCount = reviews.length;
+    const averageRating = reviewsCount
+      ? Number((reviews.reduce((sum, review) => sum + Number(review.rating), 0) / reviewsCount).toFixed(1))
+      : 0;
 
     return {
       reviews,
-      ...summary,
+      averageRating,
+      reviewsCount,
     };
   }
 

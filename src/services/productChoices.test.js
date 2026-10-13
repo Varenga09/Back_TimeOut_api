@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const ProductService = require('./ProductService');
 const OrderService = require('./OrderService');
 const CouponRepository = require('../repositories/CouponRepository');
+const ProductRepository = require('../repositories/ProductRepository');
+const ProductReviewRepository = require('../repositories/ProductReviewRepository');
 const { createOrderSchema } = require('../validations/orderValidation');
 
 const ids = {
@@ -167,4 +169,25 @@ test('imagem e descrição do adicional ficam congeladas no pedido; valores mani
     id: ids.pacoca, name: 'Paçoca', description: 'Farofa crocante', price: 2, imageUrl: '/uploads/pacoca.jpg',
   });
   assert.ok(createOrderSchema.validate({ sellerId: 3, paymentMethod: 'pix', deliveryType: 'pickup', items: [{ productId: 8, selectedSizeId: ids.medium, selectedAddonIds: [ids.pacoca], quantity: 1, subtotal: 0.01 }] }).error);
+});
+
+test('avaliações reutilizam a lista carregada para calcular média e total', async () => {
+  const originalProduct = ProductRepository.findById;
+  const originalReviews = ProductReviewRepository.findByProductId;
+  const originalSummary = ProductReviewRepository.getSummary;
+  let summaryCalls = 0;
+  ProductRepository.findById = async () => ({ id: 8, environmentId: 1 });
+  ProductReviewRepository.findByProductId = async () => [{ rating: 4 }, { rating: 5 }, { rating: 5 }];
+  ProductReviewRepository.getSummary = async () => { summaryCalls += 1; return {}; };
+  try {
+    const result = await ProductService.getReviews(8, { environmentId: 1 });
+    assert.equal(result.reviewsCount, 3);
+    assert.equal(result.averageRating, 4.7);
+    assert.equal(summaryCalls, 0);
+    await assert.rejects(ProductService.getReviews(8, { environmentId: 2 }), /Produto não encontrado/);
+  } finally {
+    ProductRepository.findById = originalProduct;
+    ProductReviewRepository.findByProductId = originalReviews;
+    ProductReviewRepository.getSummary = originalSummary;
+  }
 });
