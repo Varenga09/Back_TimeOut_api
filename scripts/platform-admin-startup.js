@@ -46,6 +46,8 @@ if (require.main === module) {
     console.error('Promoção interna não concluída; a conta não foi alterada', {
       type: error?.name || 'UnknownError',
       code: error?.parent?.code || error?.code || null,
+      table: error?.parent?.table || null,
+      column: error?.parent?.column || null,
       constraint: error?.parent?.constraint || null,
     });
     process.exitCode = 1;
