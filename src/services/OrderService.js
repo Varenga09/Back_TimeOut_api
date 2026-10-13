@@ -88,6 +88,7 @@ class OrderService {
         preparedItems.push({
           productId: product.id,
           selectedFlavor: selectedOption.name,
+          imageUrl: selectedOption.imageUrl || product.imageUrl || null,
           quantity: item.quantity,
           unitPrice,
           subtotal,
@@ -178,6 +179,7 @@ class OrderService {
       return {
         name: null,
         priceAdjustment: 0,
+        imageUrl: product.imageUrl || null,
       };
     }
 
@@ -201,7 +203,7 @@ class OrderService {
       .map((item) => {
         if (typeof item === 'string') {
           const name = item.trim();
-          return name ? { name, priceAdjustment: 0 } : null;
+          return name ? { name, priceAdjustment: 0, imageUrl: null } : null;
         }
 
         if (!item || typeof item !== 'object') return null;
@@ -214,6 +216,7 @@ class OrderService {
         return {
           name,
           priceAdjustment: Number.isFinite(priceAdjustment) ? priceAdjustment : 0,
+          imageUrl: item.imageUrl || null,
         };
       })
       .filter(Boolean);

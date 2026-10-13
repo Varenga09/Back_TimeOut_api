@@ -2,8 +2,10 @@ const Joi = require('joi');
 const { paginationSchema } = require('./commonValidation');
 
 const flavorOptionSchema = Joi.object({
+  id: Joi.string().uuid().optional(),
   name: Joi.string().trim().max(80).required(),
   priceAdjustment: Joi.number().precision(2).min(-9999).max(9999).default(0),
+  removeImage: Joi.boolean().optional(),
 });
 
 const flavorsSchema = Joi.alternatives()
@@ -11,7 +13,7 @@ const flavorsSchema = Joi.alternatives()
     Joi.array()
       .items(Joi.alternatives().try(Joi.string().trim().max(80), flavorOptionSchema))
       .max(20),
-    Joi.string().trim().max(4000).allow('', null)
+    Joi.string().trim().max(12000).allow('', null)
   )
   .optional();
 
@@ -19,6 +21,7 @@ const createProductSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120).required(),
   description: Joi.string().trim().allow('', null).optional(),
   flavors: flavorsSchema,
+  flavorImageIds: Joi.string().max(1000).optional(),
   price: Joi.number().precision(2).positive().required(),
   discountType: Joi.string().valid('percentage', 'fixed').allow('', null).optional(),
   discountValue: Joi.number().precision(2).min(0).allow(null).optional(),
@@ -40,6 +43,7 @@ const updateProductSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120),
   description: Joi.string().trim().allow('', null),
   flavors: flavorsSchema,
+  flavorImageIds: Joi.string().max(1000).optional(),
   price: Joi.number().precision(2).positive(),
   discountType: Joi.string().valid('percentage', 'fixed').allow('', null),
   discountValue: Joi.number().precision(2).min(0).allow(null),

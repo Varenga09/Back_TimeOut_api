@@ -3,6 +3,15 @@ const ProductRepository = require('../repositories/ProductRepository');
 const ProductReviewRepository = require('../repositories/ProductReviewRepository');
 const AppError = require('../utils/AppError');
 const { isEnvironmentAdmin } = require('../utils/permissions');
+const { randomUUID } = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const flavorImageTypes = {
+  'image/jpeg': { extensions: ['.jpg', '.jpeg'], matches: (bytes) => bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff },
+  'image/png': { extensions: ['.png'], matches: (bytes) => bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) },
+  'image/webp': { extensions: ['.webp'], matches: (bytes) => bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP' },
+};
 
 class ProductService {
   async create(data, requester, files = null) {
@@ -16,6 +25,8 @@ class ProductService {
     }
 
     const productData = this.normalizeProductData(data);
+    productData.flavors = this.attachFlavorImages(productData.flavors || [], [], data.flavorImageIds, files);
+    delete productData.flavorImageIds;
     const mainImage = this.getMainImage(files);
     const uploadedGallery = this.getGalleryImages(files);
     const imageGallery = this.cleanImageList([
@@ -76,6 +87,15 @@ class ProductService {
     }
 
     const productData = this.normalizeProductData(data);
+    if (Object.prototype.hasOwnProperty.call(productData, 'flavors') || files?.flavorImages?.length) {
+      productData.flavors = this.attachFlavorImages(
+        productData.flavors ?? this.normalizeFlavors(product.flavors),
+        this.normalizeFlavors(product.flavors),
+        data.flavorImageIds,
+        files
+      );
+    }
+    delete productData.flavorImageIds;
     const mainImage = this.getMainImage(files);
     const uploadedGallery = this.getGalleryImages(files);
     const hasGalleryInPayload = Object.prototype.hasOwnProperty.call(productData, 'imageGallery');
@@ -225,6 +245,55 @@ class ProductService {
     return (files?.images || []).map((file) => `/uploads/${file.filename}`);
   }
 
+  attachFlavorImages(options, previousOptions, rawIds, files) {
+    const uploads = files?.flavorImages || [];
+    uploads.forEach((file) => this.validateFlavorImage(file));
+    let ids = [];
+    try {
+      ids = rawIds ? JSON.parse(rawIds) : [];
+    } catch {
+      throw new AppError('Associação das fotos das opções inválida', 400);
+    }
+    if (!Array.isArray(ids) || ids.length !== uploads.length || new Set(ids).size !== ids.length) {
+      throw new AppError('Associação das fotos das opções inválida', 400);
+    }
+
+    const previousById = new Map(previousOptions.filter((option) => option.id).map((option) => [option.id, option]));
+    const previousByName = new Map(previousOptions.map((option) => [option.name.toLowerCase(), option]));
+    const usedIds = new Set();
+    const result = options.map((option) => {
+      if (option.id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(option.id)) {
+        throw new AppError('Identificador de opção inválido', 400);
+      }
+      const previous = (option.id && previousById.get(option.id)) || previousByName.get(option.name.toLowerCase());
+      const id = previous?.id || option.id || randomUUID();
+      if (usedIds.has(id)) throw new AppError('Identificador de opção duplicado', 400);
+      usedIds.add(id);
+      return {
+        id,
+        name: option.name,
+        priceAdjustment: option.priceAdjustment,
+        imageUrl: option.removeImage ? null : previous?.imageUrl || null,
+      };
+    });
+
+    ids.forEach((id, index) => {
+      const option = result.find((item) => item.id === id);
+      if (!option) throw new AppError('Foto enviada para opção inexistente neste produto', 400);
+      option.imageUrl = `/uploads/${uploads[index].filename}`;
+    });
+    return result;
+  }
+
+  validateFlavorImage(file) {
+    const type = flavorImageTypes[file.mimetype];
+    const extension = path.extname(file.filename || '').toLowerCase();
+    const bytes = file.buffer || (file.path && fs.readFileSync(file.path));
+    if (!type || !type.extensions.includes(extension) || !Buffer.isBuffer(bytes) || bytes.length > 2 * 1024 * 1024 || !type.matches(bytes)) {
+      throw new AppError('Foto da opção deve ser JPG, PNG ou WebP válido, até 2 MB', 400);
+    }
+  }
+
   normalizeFlavors(value) {
     if (Array.isArray(value)) {
       return this.cleanFlavorList(value);
@@ -292,8 +361,11 @@ class ProductService {
     );
 
     return {
+      ...(typeof item.id === 'string' && { id: item.id }),
       name: name.slice(0, 80),
       priceAdjustment,
+      ...(item.imageUrl && { imageUrl: item.imageUrl }),
+      ...(item.removeImage && { removeImage: true }),
     };
   }
 

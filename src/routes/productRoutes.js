@@ -27,6 +27,7 @@ router.post(
   upload.fields([
     { name: 'image', maxCount: 1 },
     { name: 'images', maxCount: 8 },
+    { name: 'flavorImages', maxCount: 20 },
   ]),
   validateMiddleware(createProductSchema),
   ProductController.create
@@ -47,6 +48,7 @@ router.put(
   upload.fields([
     { name: 'image', maxCount: 1 },
     { name: 'images', maxCount: 8 },
+    { name: 'flavorImages', maxCount: 20 },
   ]),
   validateMiddleware(updateProductSchema),
   ProductController.update
