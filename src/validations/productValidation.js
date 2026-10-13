@@ -4,6 +4,7 @@ const { paginationSchema } = require('./commonValidation');
 const flavorOptionSchema = Joi.object({
   id: Joi.string().uuid().optional(),
   name: Joi.string().trim().max(80).required(),
+  description: Joi.string().trim().max(160).allow('').optional(),
   priceAdjustment: Joi.number().precision(2).min(-9999).max(9999).default(0),
   isActive: Joi.boolean().optional(),
   removeImage: Joi.boolean().optional(),
@@ -13,6 +14,7 @@ const sizeOptionsSchema = Joi.alternatives().try(
   Joi.array().items(Joi.object({
     id: Joi.string().uuid().optional(),
     name: Joi.string().trim().max(80).required(),
+    description: Joi.string().trim().max(160).allow('').optional(),
     price: Joi.number().precision(2).positive().max(999999).required(),
     isActive: Joi.boolean().optional(),
     removeImage: Joi.boolean().optional(),
@@ -24,8 +26,10 @@ const addonsSchema = Joi.alternatives().try(
   Joi.array().items(Joi.object({
     id: Joi.string().uuid().optional(),
     name: Joi.string().trim().max(80).required(),
+    description: Joi.string().trim().max(160).allow('').optional(),
     price: Joi.number().precision(2).min(0).max(999999).required(),
     isActive: Joi.boolean().optional(),
+    removeImage: Joi.boolean().optional(),
   })).max(30),
   Joi.string().trim().max(12000).allow('', null)
 ).optional();
@@ -47,6 +51,7 @@ const createProductSchema = Joi.object({
   addons: addonsSchema,
   flavorImageIds: Joi.string().max(1000).optional(),
   sizeImageIds: Joi.string().max(1000).optional(),
+  addonImageIds: Joi.string().max(1500).optional(),
   price: Joi.number().precision(2).positive().required(),
   discountType: Joi.string().valid('percentage', 'fixed').allow('', null).optional(),
   discountValue: Joi.number().precision(2).min(0).allow(null).optional(),
@@ -72,6 +77,7 @@ const updateProductSchema = Joi.object({
   addons: addonsSchema,
   flavorImageIds: Joi.string().max(1000).optional(),
   sizeImageIds: Joi.string().max(1000).optional(),
+  addonImageIds: Joi.string().max(1500).optional(),
   price: Joi.number().precision(2).positive(),
   discountType: Joi.string().valid('percentage', 'fixed').allow('', null),
   discountValue: Joi.number().precision(2).min(0).allow(null),

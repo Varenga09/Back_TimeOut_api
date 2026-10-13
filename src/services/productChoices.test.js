@@ -58,7 +58,7 @@ test('fotografia financeira permanece após editar o produto; legado continua se
   const item = OrderService.prepareItem(product, { selectedSizeId: ids.medium, selectedAddonIds: [ids.pacoca], quantity: 1 });
   product.sizeOptions[1].price = 99;
   product.addons[0].price = 12;
-  assert.deepEqual(item.optionsSnapshot.size, { id: ids.medium, name: '500 ml', price: 15 });
+  assert.deepEqual(item.optionsSnapshot.size, { id: ids.medium, name: '500 ml', price: 15, imageUrl: '/uploads/500.jpg' });
   assert.equal(item.optionsSnapshot.addons[0].price, 2);
   assert.equal(item.unitPrice, 17);
   const oldItem = OrderService.prepareItem({ id: 9, name: 'Suco', price: '5.00', flavors: ['Laranja'] }, { selectedFlavor: 'Laranja', selectedAddonIds: [], quantity: 1 });
@@ -126,4 +126,45 @@ test('fotos de tamanhos seguem o ID, mesmo após reordenação', () => {
   assert.throws(() => ProductService.attachOptionImages(updated, original, JSON.stringify([ids.foreign]), {
     sizeImages: [{ filename: 'other.jpg', mimetype: 'image/jpeg', buffer: jpeg }],
   }, 'sizeImages'), /opção inexistente/);
+});
+
+test('cadastro e edição preservam descrição e fotos dos adicionais pelo ID', () => {
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0]);
+  const input = ProductService.normalizeChoiceList([
+    { id: ids.pacoca, name: 'Paçoca', description: 'Farofa crocante', price: 2 },
+    { id: ids.milk, name: 'Leite em pó', price: 3 },
+  ], 'adicional');
+  const created = ProductService.attachOptionImages(input, [], JSON.stringify([ids.pacoca]), {
+    addonImages: [{ filename: 'pacoca.jpg', mimetype: 'image/jpeg', buffer: jpeg }],
+  }, 'addonImages');
+  const previous = ProductService.normalizeChoiceList(created, 'adicional', true);
+  const reordered = ProductService.attachOptionImages([
+    { id: ids.milk, name: 'Leite em pó', description: '', price: 3 },
+    { id: ids.pacoca, name: 'Paçoca', description: 'Farofa crocante', price: 2 },
+  ], previous, null, null, 'addonImages');
+  assert.equal(reordered[1].description, 'Farofa crocante');
+  assert.equal(reordered[1].imageUrl, '/uploads/pacoca.jpg');
+  assert.equal(reordered[0].imageUrl, null);
+  const replaced = ProductService.attachOptionImages(reordered, previous, JSON.stringify([ids.pacoca]), {
+    addonImages: [{ filename: 'pacoca-new.jpg', mimetype: 'image/jpeg', buffer: jpeg }],
+  }, 'addonImages');
+  assert.equal(replaced[1].imageUrl, '/uploads/pacoca-new.jpg');
+  const removed = ProductService.attachOptionImages([{ ...replaced[1], removeImage: true }], replaced, null, null, 'addonImages');
+  assert.equal(removed[0].imageUrl, null);
+  assert.throws(() => ProductService.attachOptionImages(reordered, previous, JSON.stringify([ids.foreign]), {
+    addonImages: [{ filename: 'foreign.jpg', mimetype: 'image/jpeg', buffer: jpeg }],
+  }, 'addonImages'), /opção inexistente/);
+});
+
+test('imagem e descrição do adicional ficam congeladas no pedido; valores manipulados são recusados', () => {
+  const product = acai();
+  product.addons[0].description = 'Farofa crocante';
+  product.addons[0].imageUrl = '/uploads/pacoca.jpg';
+  const item = OrderService.prepareItem(product, { selectedSizeId: ids.medium, selectedAddonIds: [ids.pacoca], quantity: 1 });
+  product.addons[0].price = 99;
+  product.addons[0].imageUrl = '/uploads/other.jpg';
+  assert.deepEqual(item.optionsSnapshot.addons[0], {
+    id: ids.pacoca, name: 'Paçoca', description: 'Farofa crocante', price: 2, imageUrl: '/uploads/pacoca.jpg',
+  });
+  assert.ok(createOrderSchema.validate({ sellerId: 3, paymentMethod: 'pix', deliveryType: 'pickup', items: [{ productId: 8, selectedSizeId: ids.medium, selectedAddonIds: [ids.pacoca], quantity: 1, subtotal: 0.01 }] }).error);
 });

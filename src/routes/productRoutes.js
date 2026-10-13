@@ -29,6 +29,7 @@ router.post(
     { name: 'images', maxCount: 8 },
     { name: 'flavorImages', maxCount: 20 },
     { name: 'sizeImages', maxCount: 20 },
+    { name: 'addonImages', maxCount: 30 },
   ]),
   validateMiddleware(createProductSchema),
   ProductController.create
@@ -51,6 +52,7 @@ router.put(
     { name: 'images', maxCount: 8 },
     { name: 'flavorImages', maxCount: 20 },
     { name: 'sizeImages', maxCount: 20 },
+    { name: 'addonImages', maxCount: 30 },
   ]),
   validateMiddleware(updateProductSchema),
   ProductController.update

@@ -27,8 +27,10 @@ class ProductService {
     const productData = this.normalizeProductData(data);
     productData.flavors = this.attachFlavorImages(productData.flavors || [], [], data.flavorImageIds, files);
     productData.sizeOptions = this.attachOptionImages(productData.sizeOptions || [], [], data.sizeImageIds, files, 'sizeImages');
+    productData.addons = this.attachOptionImages(productData.addons || [], [], data.addonImageIds, files, 'addonImages');
     delete productData.flavorImageIds;
     delete productData.sizeImageIds;
+    delete productData.addonImageIds;
     const mainImage = this.getMainImage(files);
     const uploadedGallery = this.getGalleryImages(files);
     const imageGallery = this.cleanImageList([
@@ -99,15 +101,25 @@ class ProductService {
     }
     if (Object.prototype.hasOwnProperty.call(productData, 'sizeOptions') || files?.sizeImages?.length) {
       productData.sizeOptions = this.attachOptionImages(
-        productData.sizeOptions ?? this.normalizeChoiceList(product.sizeOptions, 'tamanho'),
-        this.normalizeChoiceList(product.sizeOptions, 'tamanho'),
+        productData.sizeOptions ?? this.normalizeChoiceList(product.sizeOptions, 'tamanho', true),
+        this.normalizeChoiceList(product.sizeOptions, 'tamanho', true),
         data.sizeImageIds,
         files,
         'sizeImages'
       );
     }
+    if (Object.prototype.hasOwnProperty.call(productData, 'addons') || files?.addonImages?.length) {
+      productData.addons = this.attachOptionImages(
+        productData.addons ?? this.normalizeChoiceList(product.addons, 'adicional', true),
+        this.normalizeChoiceList(product.addons, 'adicional', true),
+        data.addonImageIds,
+        files,
+        'addonImages'
+      );
+    }
     delete productData.flavorImageIds;
     delete productData.sizeImageIds;
+    delete productData.addonImageIds;
     const mainImage = this.getMainImage(files);
     const uploadedGallery = this.getGalleryImages(files);
     const hasGalleryInPayload = Object.prototype.hasOwnProperty.call(productData, 'imageGallery');
@@ -389,6 +401,7 @@ class ProductService {
     return {
       ...(typeof item.id === 'string' && { id: item.id }),
       name: name.slice(0, 80),
+      description: String(item.description || '').trim().slice(0, 160),
       priceAdjustment,
       ...(item.imageUrl && { imageUrl: item.imageUrl }),
       ...(item.isActive === false && { isActive: false }),
@@ -396,7 +409,7 @@ class ProductService {
     };
   }
 
-  normalizeChoiceList(value, label) {
+  normalizeChoiceList(value, label, preserveStoredImage = false) {
     let values = value;
     if (typeof values === 'string') {
       try {
@@ -415,9 +428,10 @@ class ProductService {
     return values.map((item) => {
       if (!item || typeof item !== 'object') throw new AppError(`${label} inválido`, 400);
       const name = String(item.name || '').trim().slice(0, 80);
+      const description = String(item.description || '').trim();
       const key = name.toLocaleLowerCase('pt-BR');
       const price = Number(item.price);
-      if (!name || names.has(key) || (item.isActive !== undefined && typeof item.isActive !== 'boolean') || !Number.isFinite(price) || price < (label === 'tamanho' ? 0.01 : 0) || price > 999999 || Math.abs(Math.round(price * 100) - price * 100) > 0.000001) {
+      if (!name || description.length > 160 || names.has(key) || item.price === '' || item.price == null || (item.isActive !== undefined && typeof item.isActive !== 'boolean') || !Number.isFinite(price) || price < (label === 'tamanho' ? 0.01 : 0) || price > 999999 || Math.abs(Math.round(price * 100) - price * 100) > 0.000001) {
         throw new AppError(`${label} duplicado ou com preço inválido`, 400);
       }
       names.add(key);
@@ -431,8 +445,10 @@ class ProductService {
       return {
         id: item.id || (label === 'adicional' ? randomUUID() : undefined),
         name,
+        description,
         price,
         isActive: item.isActive !== false,
+        ...(preserveStoredImage && item.imageUrl && { imageUrl: item.imageUrl }),
         ...(item.removeImage && { removeImage: true }),
       };
     });

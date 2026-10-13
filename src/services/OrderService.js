@@ -179,9 +179,9 @@ class OrderService {
       imageUrl: size?.imageUrl || flavor.imageUrl || product.imageUrl || null,
       optionsSnapshot: {
         basePrice: fromCents(baseCents),
-        size: size ? { id: size.id, name: size.name, price: fromCents(toCents(size.price)) } : null,
-        flavor: flavor.name ? { name: flavor.name, priceAdjustment: fromCents(toCents(flavor.priceAdjustment)) } : null,
-        addons: addons.map((addon) => ({ id: addon.id, name: addon.name, price: fromCents(toCents(addon.price)) })),
+        size: size ? { id: size.id, name: size.name, ...(size.description && { description: size.description }), price: fromCents(toCents(size.price)), ...(size.imageUrl && { imageUrl: size.imageUrl }) } : null,
+        flavor: flavor.name ? { name: flavor.name, ...(flavor.description && { description: flavor.description }), priceAdjustment: fromCents(toCents(flavor.priceAdjustment)), ...(flavor.imageUrl && { imageUrl: flavor.imageUrl }) } : null,
+        addons: addons.map((addon) => ({ id: addon.id, name: addon.name, ...(addon.description && { description: addon.description }), price: fromCents(toCents(addon.price)), ...(addon.imageUrl && { imageUrl: addon.imageUrl }) })),
         productDiscount: fromCents(baseCents - discountedBaseCents),
       },
       quantity: item.quantity,
@@ -257,6 +257,7 @@ class OrderService {
 
         return {
           name,
+          ...(item.description && { description: item.description }),
           priceAdjustment: Number.isFinite(priceAdjustment) ? priceAdjustment : 0,
           imageUrl: item.imageUrl || null,
           ...(item.isActive === false && { isActive: false }),
