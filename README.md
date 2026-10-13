@@ -237,6 +237,15 @@ Não use prefixo `VITE_` e não salve o valor no repositório. No Shell seguro d
 
 O Shell do Render exige um plano de computação com suporte a Shell; ele não está disponível no plano Free. No Free, o deploy do código e a criação da variável não executam a promoção automaticamente. Não use uma rota pública nem insira o usuário diretamente no banco para contornar essa restrição.
 
+No plano Free, é possível executar a promoção de forma controlada na inicialização. Depois de confirmar que `PLATFORM_ADMIN_BOOTSTRAP_SECRET` já está configurado no backend, adicione **juntas** estas duas variáveis temporárias no mesmo serviço:
+
+```env
+PLATFORM_ADMIN_BOOTSTRAP_REQUEST=TIMEOUT_PRODUCTION:usuario@exemplo.com
+PLATFORM_ADMIN_BOOTSTRAP_INPUT=<mesmo valor de PLATFORM_ADMIN_BOOTSTRAP_SECRET>
+```
+
+Salve e aguarde o deploy. A inicialização consulta primeiro se a conta existe e se o e-mail foi confirmado. Somente nesse caso executa a promoção; os logs mostram apenas e-mail, função e confirmação, nunca o segredo. Se o usuário não existir ou o e-mail não estiver confirmado, a promoção é ignorada e a API continua funcionando. Se a autorização estiver incorreta, o deploy falha sem alterar a conta. Depois de conferir o resultado, **remova as duas variáveis temporárias** e faça novo deploy. A variável `PLATFORM_ADMIN_BOOTSTRAP_SECRET` pode permanecer no backend. A operação é idempotente e não cria auditorias duplicadas.
+
 ```bash
 export PLATFORM_ADMIN_BOOTSTRAP_INPUT="$PLATFORM_ADMIN_BOOTSTRAP_SECRET"
 npm run platform-admin:status -- --email="usuario@exemplo.com" --confirm-production=TIMEOUT_PRODUCTION
