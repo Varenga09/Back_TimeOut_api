@@ -4,6 +4,7 @@ const upload = require('../config/upload');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 const emailVerifiedMiddleware = require('../middlewares/emailVerifiedMiddleware');
+const approvedMembershipMiddleware = require('../middlewares/approvedMembershipMiddleware');
 const { validateMiddleware } = require('../middlewares/validateMiddleware');
 const { idParamSchema } = require('../validations/commonValidation');
 const {
@@ -18,6 +19,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
+router.use(approvedMembershipMiddleware);
 
 router.post(
   '/',

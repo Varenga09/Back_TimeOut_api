@@ -57,6 +57,11 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: 0,
       },
+      isSuspended: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
       phone: {
         type: DataTypes.STRING(30),
         allowNull: true,
@@ -100,9 +105,9 @@ module.exports = (sequelize) => {
           const salt = await bcrypt.genSalt(10);
           user.password = await bcrypt.hash(user.password, salt);
         },
-        beforeUpdate: async (user) => {
+        beforeUpdate: async (user, options) => {
           if (user.previous('role') === 'platform_admin' &&
-            (user.role !== 'platform_admin' || user.changed('environmentId'))) {
+            (user.role !== 'platform_admin' || (user.changed('environmentId') && !options?.platformMembershipSwitch))) {
             throw new AppError('O acesso interno da equipe Time Out não pode ser alterado por fluxos de ambiente', 403);
           }
           if (user.changed('password')) {

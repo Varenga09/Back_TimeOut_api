@@ -86,10 +86,25 @@ test('perfis administrativos têm escopos distintos', () => {
   assert.equal(isPlatformAdmin({ role: 'customer' }), false);
 });
 
-test('conta da equipe não pode trocar de perfil ao entrar ou alternar ambiente', async () => {
+test('conta da equipe pode selecionar participação sem perder a função global', async () => {
   const requester = { id: 7, role: 'platform_admin', environmentId: null };
-  await assert.rejects(EnvironmentService.join('TO-TESTE', requester), /equipe Time Out não entram/);
-  await assert.rejects(EnvironmentService.switch(1, requester), /não alternam/);
+  const { Environment } = require('../models');
+  const originals = { membership: UserEnvironmentRepository.findOne, environment: Environment.findByPk, user: User.findByPk, findId: UserRepository.findById };
+  const updates = [];
+  UserEnvironmentRepository.findOne = async () => ({ userId: 7, environmentId: 1, status: 'approved', role: 'customer' });
+  Environment.findByPk = async () => ({ status: 'active' });
+  User.findByPk = async () => ({ update: async (data, options) => { updates.push({ data, options }); } });
+  UserRepository.findById = async () => ({ id: 7, role: 'platform_admin', environmentId: 1 });
+  try {
+    const user = await EnvironmentService.switch(1, requester);
+    assert.equal(user.role, 'platform_admin');
+    assert.deepEqual(updates, [{ data: { environmentId: 1 }, options: { platformMembershipSwitch: true } }]);
+  } finally {
+    UserEnvironmentRepository.findOne = originals.membership;
+    Environment.findByPk = originals.environment;
+    User.findByPk = originals.user;
+    UserRepository.findById = originals.findId;
+  }
 });
 
 test('transferência de ambiente não remove o acesso de platform_admin', async () => {
@@ -98,7 +113,7 @@ test('transferência de ambiente não remove o acesso de platform_admin', async 
   User.findByPk = async () => ({ id: 8, role: 'platform_admin' });
   try {
     await assert.rejects(
-      AccessControlService.transferEnvironment(2, 8, { id: 9, role: 'platform_admin' }),
+      AccessControlService.transferEnvironment(2, 8, 'Troca administrativa autorizada', { id: 9, role: 'platform_admin' }),
       /não pode administrar um ambiente/
     );
   } finally {

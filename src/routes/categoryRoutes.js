@@ -3,6 +3,7 @@ const CategoryController = require('../controllers/CategoryController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 const emailVerifiedMiddleware = require('../middlewares/emailVerifiedMiddleware');
+const approvedMembershipMiddleware = require('../middlewares/approvedMembershipMiddleware');
 const { validateMiddleware } = require('../middlewares/validateMiddleware');
 const { idParamSchema } = require('../validations/commonValidation');
 const { categorySchema } = require('../validations/categoryValidation');
@@ -11,6 +12,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
+router.use(approvedMembershipMiddleware);
 
 router.post('/', roleMiddleware('admin', 'environment_admin'), validateMiddleware(categorySchema), CategoryController.create);
 router.get('/', CategoryController.getAll);

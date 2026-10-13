@@ -6,7 +6,7 @@ const { isEnvironmentAdmin, isPlatformAdmin } = require('../utils/permissions');
 const NotificationService = require('./InternalNotificationService');
 const AuditService = require('./AuditService');
 const { generateEnvironmentAccessCode, hashEnvironmentAccessCode } = require('../utils/security');
-const { sequelize, Environment, EnvironmentAccessCode } = require('../models');
+const { sequelize, Environment, EnvironmentAccessCode, User } = require('../models');
 
 class EnvironmentService {
   async create(data, requester = null) {
@@ -56,7 +56,6 @@ class EnvironmentService {
   }
 
   async join(accessCode, requester) {
-    if (isPlatformAdmin(requester)) throw new AppError('Contas da equipe Time Out não entram em ambientes como clientes', 403);
     const environment = await EnvironmentRepository.findByAccessCode(accessCode);
     if (!environment) {
       throw new AppError('Código de ambiente inválido', 404);
@@ -79,17 +78,27 @@ class EnvironmentService {
       await AuditService.record({ actorId: requester.id, action: 'membership.requested', resourceType: 'membership', resourceId: membership.id, environmentId: environment.id, summary: 'Entrada no ambiente solicitada' });
       return { user: await UserRepository.findById(requester.id), membership, pendingApproval: true };
     }
-    const user = await UserRepository.update(requester.id, { environmentId: environment.id, role: membership.role });
+    const user = await this.selectMembership(membership, requester);
     return { user, membership, pendingApproval: false };
   }
 
   async switch(environmentId, requester) {
-    if (isPlatformAdmin(requester)) throw new AppError('Contas da equipe Time Out não alternam para perfis de ambiente', 403);
     const membership = await UserEnvironmentRepository.findOne(requester.id, environmentId);
     if (!membership || membership.status !== 'approved') {
       throw new AppError('Você ainda não faz parte deste ambiente', 403);
     }
 
+    return this.selectMembership(membership, requester);
+  }
+
+  async selectMembership(membership, requester) {
+    const environment = await Environment.findByPk(membership.environmentId, { attributes: ['status'] });
+    if (environment?.status !== 'active') throw new AppError('Este ambiente não está ativo', 403);
+    if (isPlatformAdmin(requester)) {
+      const user = await User.findByPk(requester.id);
+      await user.update({ environmentId: membership.environmentId }, { platformMembershipSwitch: true });
+      return UserRepository.findById(requester.id);
+    }
     return UserRepository.update(requester.id, {
       environmentId: membership.environmentId,
       role: membership.role,

@@ -25,15 +25,21 @@ class UserService {
       throw new AppError('Usuário não encontrado', 404);
     }
 
-    const sameEnvironment = Number(user.environmentId) === Number(requester.environmentId) ||
-      Boolean(await UserEnvironmentRepository.findOne(user.id, requester.environmentId));
+    const sameEnvironment = requester.environmentId && (
+      Number(user.environmentId) === Number(requester.environmentId) ||
+      Boolean(await UserEnvironmentRepository.findOne(user.id, requester.environmentId))
+    );
     const ownProfile = Number(user.id) === Number(requester.id);
 
     if (!ownProfile && (!isEnvironmentAdmin(requester) || !sameEnvironment)) {
       throw new AppError('Você não tem acesso a este usuário', 403);
     }
 
-    return user;
+    if (ownProfile) return user;
+    const scopedUser = user.toJSON();
+    scopedUser.memberships = (scopedUser.memberships || []).filter((membership) => Number(membership.environmentId) === Number(requester.environmentId));
+    scopedUser.environment = scopedUser.memberships[0]?.environment || null;
+    return scopedUser;
   }
 
   async update(id, data, requester, file = null) {
@@ -43,12 +49,7 @@ class UserService {
     }
 
     const ownProfile = Number(user.id) === Number(requester.id);
-    const targetMembership = await UserEnvironmentRepository.findOne(id, requester.environmentId);
-    const adminSameEnvironment = isEnvironmentAdmin(requester) && Boolean(targetMembership);
-
-    if (!ownProfile && !adminSameEnvironment) {
-      throw new AppError('Você não pode atualizar este usuário', 403);
-    }
+    if (!ownProfile) throw new AppError('Use o painel administrativo para corrigir dados de outras contas', 403);
 
     if (data.password) {
       if (!ownProfile) {
@@ -69,7 +70,7 @@ class UserService {
       }
     }
 
-    const allowedData = ownProfile && !adminSameEnvironment
+    const allowedData = ownProfile
       ? {
           name: data.name,
           email: data.email,
@@ -77,13 +78,7 @@ class UserService {
           password: data.password,
           profileImageUrl: data.profileImageUrl,
         }
-      : {
-          ...data,
-          role: undefined,
-          currentPassword: undefined,
-          password: ownProfile ? data.password : undefined,
-          ...(Number(user.environmentId) !== Number(requester.environmentId) && { role: undefined }),
-        };
+      : { name: data.name, phone: data.phone };
     const emailChanged = data.email && data.email !== user.email;
     const phoneChanged = data.phone && data.phone !== user.phone;
     const mockIdentity = process.env.IDENTITY_VERIFICATION_MODE !== 'live';
@@ -121,17 +116,9 @@ class UserService {
   }
 
   async delete(id, requester) {
-    const user = await UserRepository.findById(id);
-    if (!user) {
-      throw new AppError('Usuário não encontrado', 404);
-    }
-
-    if (!isEnvironmentAdmin(requester) || Number(user.environmentId) !== Number(requester.environmentId)) {
-      throw new AppError('Apenas o admin do ambiente pode deletar usuários', 403);
-    }
-
-    await UserRepository.delete(id);
-    return true;
+    void id;
+    void requester;
+    throw new AppError('Exclusão de contas desativada para preservar pedidos e histórico. Use a suspensão de conta.', 403);
   }
 }
 

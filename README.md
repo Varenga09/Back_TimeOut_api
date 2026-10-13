@@ -223,6 +223,14 @@ Essas credenciais sao exclusivamente locais e o seeder nao cria essas contas qua
 
 As migrations sao incrementais e nao removem usuarios, produtos, pedidos ou pagamentos existentes.
 
+### Participacao e administracao
+
+O cadastro pode ser feito sem ambiente. O usuario escolhe um ambiente depois e so acessa catalogo privado, carrinho e criacao de pedidos quando o ambiente esta ativo e sua participacao em `UserEnvironment` esta aprovada. Essa verificacao ocorre tambem na API. A equipe interna conserva a funcao global `platform_admin` ao participar de um ambiente como cliente. O carrinho do site e separado por usuario e ambiente.
+
+O painel da equipe usa `/access/platform` para solicitacoes, ambientes, administradores e auditoria; `/access/platform/environment-applications/:id` para detalhes; e `/access/platform/sellers/:id/regularity` para consultar vendedores. O administrador local usa `/access/environment-admin`. A gestao de contas usa `/access/admin/accounts` e suas rotas de detalhe, correcao de perfil, suspensao, invalidacao de sessoes e nova confirmacao de e-mail. Todas exigem autenticacao, confirmacao de e-mail e escopo administrativo; nao existe rota publica de promocao. CPF completo e documentos so sao retornados por consulta explicita com motivo e auditoria. Respostas comuns mascaram CPF e nunca incluem senha ou tokens.
+
+A migration `20261012000100-allow-unassigned-and-suspend-users.js` permite conta sem ambiente e acrescenta estado de suspensao da conta e comprovante privado da solicitacao de vendedor. Ela nao renomeia nem remove tabelas ou dados comerciais. Antes de publicar em producao, preserve um backup verificavel do banco. A migration ainda nao foi aplicada ao banco online nesta rodada.
+
 ### Conceder acesso à Equipe Time Out em produção
 
 Contas internas são criadas pelo cadastro normal do site. O e-mail precisa estar confirmado antes da promoção e nenhuma senha é criada ou alterada pelo procedimento abaixo. Não existe endpoint público de promoção.

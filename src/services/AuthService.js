@@ -16,8 +16,10 @@ const verificationChannels = ['email', 'sms', 'whatsapp'];
 
 class AuthService {
   async register({ name, email, password, phone, environmentAccessCode }) {
-    const environment = await EnvironmentRepository.findByAccessCode(environmentAccessCode);
-    if (!environment) {
+    const environment = environmentAccessCode
+      ? await EnvironmentRepository.findByAccessCode(environmentAccessCode)
+      : null;
+    if (environmentAccessCode && !environment) {
       throw new AppError('Código de ambiente inválido', 404);
     }
 
@@ -26,12 +28,12 @@ class AuthService {
       throw new AppError('Este e-mail já está em uso', 409);
     }
 
-    if (!environment.accessCodeEnabled || environment.status !== 'active') {
+    if (environment && (!environment.accessCodeEnabled || environment.status !== 'active')) {
       throw new AppError('Este ambiente não está aceitando novas entradas', 403);
     }
     const mockIdentity = process.env.IDENTITY_VERIFICATION_MODE !== 'live';
     const emailVerificationCode = mockIdentity ? null : generateEmailCode();
-    const membershipStatus = environment.isPrivate ? 'pending' : 'approved';
+    const membershipStatus = environment ? (environment.isPrivate ? 'pending' : 'approved') : null;
 
     const user = await UserRepository.create({
       name,
@@ -45,7 +47,7 @@ class AuthService {
       emailVerificationExpiresAt: emailVerificationCode ? getEmailCodeExpiresAt() : null,
     });
 
-    await UserEnvironmentRepository.createIfMissing(user.id, environment.id, 'customer', membershipStatus);
+    if (environment) await UserEnvironmentRepository.createIfMissing(user.id, environment.id, 'customer', membershipStatus);
 
     const deliveryResult = mockIdentity
       ? { sent: true, reason: 'IDENTITY_VERIFICATION_MOCK' }
@@ -83,6 +85,8 @@ class AuthService {
     if (!passwordMatch) {
       throw new AppError('E-mail ou senha inválidos', 401);
     }
+
+    if (user.isSuspended) throw new AppError('Esta conta está suspensa. Entre em contato com o suporte', 403);
 
     if (!process.env.JWT_SECRET) {
       throw new AppError('JWT_SECRET não configurado', 500);

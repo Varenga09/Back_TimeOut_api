@@ -9,7 +9,7 @@ const registerSchema = Joi.object({
   email: emailSchema.required(),
   password: strongPasswordSchema.required(),
   phone: phoneSchema.optional(),
-  environmentAccessCode: Joi.string().trim().max(50).required(),
+  environmentAccessCode: Joi.string().trim().max(50).allow('', null).optional(),
 }).messages({
   'any.required': 'Campo obrigatório ausente',
 });

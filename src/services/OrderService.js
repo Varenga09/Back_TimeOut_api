@@ -1,4 +1,4 @@
-const { sequelize, Product, Order, OrderItem } = require('../models');
+const { sequelize, Product, Order, OrderItem, Environment, UserEnvironment } = require('../models');
 const OrderRepository = require('../repositories/OrderRepository');
 const CouponRepository = require('../repositories/CouponRepository');
 const ProductRepository = require('../repositories/ProductRepository');
@@ -14,6 +14,13 @@ const sellerStatusFlow = ['accepted', 'preparing', 'ready', 'delivered', 'refuse
 
 class OrderService {
   async create(data, requester) {
+    const [environment, buyerMembership] = await Promise.all([
+      requester.environmentId ? Environment.findByPk(requester.environmentId, { attributes: ['status'] }) : null,
+      requester.environmentId ? UserEnvironment.findOne({ where: { userId: requester.id, environmentId: requester.environmentId, status: 'approved' } }) : null,
+    ]);
+    if (requester.isSuspended || environment?.status !== 'active' || !buyerMembership) {
+      throw new AppError('Entre em um ambiente ativo com participação aprovada antes de comprar', 403);
+    }
     const seller = await UserRepository.findById(data.sellerId);
     if (!seller || Number(seller.environmentId) !== Number(requester.environmentId)) {
       throw new AppError('Vendedor não encontrado neste ambiente', 404);
@@ -25,6 +32,11 @@ class OrderService {
 
     if (seller.role !== 'seller' && !isEnvironmentAdmin(seller)) {
       throw new AppError('O usuário informado não é vendedor', 400);
+    }
+
+    const sellerMembership = await UserEnvironment.findOne({ where: { userId: seller.id, environmentId: requester.environmentId, status: 'approved' } });
+    if (!sellerMembership || !['seller', 'environment_admin', 'admin'].includes(sellerMembership.role) || seller.isSuspended) {
+      throw new AppError('Este vendedor não está autorizado a receber novos pedidos', 403);
     }
 
     await PaymentService.ensureSellerAcceptsPaymentMethod(

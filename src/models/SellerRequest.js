@@ -19,6 +19,7 @@ module.exports = (sequelize) => {
     acceptedTerms: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     decisionReason: { type: DataTypes.TEXT, allowNull: true },
     correctionNotes: { type: DataTypes.TEXT, allowNull: true },
+    documentPath: { type: DataTypes.STRING(500), allowNull: true },
     history: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
   }, { tableName: 'seller_requests', timestamps: true });
 

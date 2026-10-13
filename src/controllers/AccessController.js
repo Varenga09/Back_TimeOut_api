@@ -7,7 +7,7 @@ class AccessController {
       const productCategories = Array.isArray(req.body.productCategories)
         ? req.body.productCategories
         : String(req.body.productCategories || '').split(',').map((item) => item.trim()).filter(Boolean);
-      const application = await AccessControlService.createSellerApplication({ ...req.body, productCategories }, req.user);
+      const application = await AccessControlService.createSellerApplication({ ...req.body, productCategories }, req.user, req.file);
       return successResponse(res, { application }, 'Solicitação de vendedor enviada', 201);
     } catch (error) { return next(error); }
   }
@@ -50,33 +50,49 @@ class AccessController {
     catch (error) { return next(error); }
   }
   async platformDashboard(req, res, next) {
-    try { return successResponse(res, await AccessControlService.getPlatformDashboard(req.user), 'Painel da equipe carregado'); }
+    try { return successResponse(res, await AccessControlService.getPlatformDashboard(req.user, req.query), 'Painel da equipe carregado'); }
     catch (error) { return next(error); }
+  }
+  async environmentApplicationDetail(req, res, next) {
+    try { return successResponse(res, await AccessControlService.getEnvironmentApplicationDetail(req.params.id, req.user), 'Detalhes da solicitação'); }
+    catch (error) { return next(error); }
+  }
+  async sellerRegularity(req, res, next) {
+    try { return successResponse(res, await AccessControlService.getSellerRegularity(req.params.id, req.user), 'Regularidade do vendedor'); }
+    catch (error) { return next(error); }
+  }
+  async sellerDocument(req, res, next) {
+    try {
+      const documentPath = await AccessControlService.getSellerApplicationDocument(req.params.id, req.query.reason, req.user);
+      res.set('Cache-Control', 'no-store');
+      return res.sendFile(documentPath);
+    } catch (error) { return next(error); }
   }
   async reviewEnvironment(req, res, next) {
     try { return successResponse(res, await AccessControlService.reviewEnvironmentApplication(req.params.id, req.body, req.user), 'Solicitação atualizada'); }
     catch (error) { return next(error); }
   }
   async suspendEnvironment(req, res, next) {
-    try { return successResponse(res, { environment: await AccessControlService.suspendEnvironment(req.params.id, req.body.suspended, req.user) }, 'Ambiente atualizado'); }
+    try { return successResponse(res, { environment: await AccessControlService.suspendEnvironment(req.params.id, req.body.suspended, req.body.reason, req.user) }, 'Ambiente atualizado'); }
     catch (error) { return next(error); }
   }
   async transferEnvironment(req, res, next) {
-    try { return successResponse(res, await AccessControlService.transferEnvironment(req.params.id, req.body.userId, req.user), 'Administração transferida'); }
+    try { return successResponse(res, await AccessControlService.transferEnvironment(req.params.id, req.body.userId, req.body.reason, req.user), 'Administração transferida'); }
     catch (error) { return next(error); }
   }
   async suspendAdministrator(req, res, next) {
-    try { return successResponse(res, await AccessControlService.suspendAdministrator(req.params.id, req.body.suspended, req.user), 'Administrador atualizado'); }
+    try { return successResponse(res, await AccessControlService.suspendAdministrator(req.params.id, req.body.suspended, req.body.reason, req.user), 'Administrador atualizado'); }
     catch (error) { return next(error); }
   }
   async environmentDocument(req, res, next) {
     try {
-      const documentPath = await AccessControlService.getEnvironmentApplicationDocument(req.params.id, req.user);
+      const documentPath = await AccessControlService.getEnvironmentApplicationDocument(req.params.id, req.query.reason, req.user);
+      res.set('Cache-Control', 'no-store');
       return res.sendFile(documentPath);
     } catch (error) { return next(error); }
   }
   async revealCpf(req, res, next) {
-    try { return successResponse(res, await AccessControlService.revealCpf(req.params.type, req.params.id, req.user), 'CPF acessado para análise'); }
+    try { return successResponse(res, await AccessControlService.revealCpf(req.params.type, req.params.id, req.query.reason, req.user), 'CPF acessado para análise'); }
     catch (error) { return next(error); }
   }
 }

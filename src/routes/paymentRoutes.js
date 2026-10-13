@@ -2,6 +2,8 @@ const { Router } = require('express');
 const PaymentController = require('../controllers/PaymentController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const emailVerifiedMiddleware = require('../middlewares/emailVerifiedMiddleware');
+const approvedMembershipMiddleware = require('../middlewares/approvedMembershipMiddleware');
+const { isPlatformAdmin } = require('../utils/permissions');
 const { validateMiddleware } = require('../middlewares/validateMiddleware');
 const { idParamSchema } = require('../validations/commonValidation');
 const {
@@ -20,6 +22,7 @@ router.get('/webhooks/mercado-pago', PaymentController.mercadoPagoWebhook);
 
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
+router.use((req, res, next) => isPlatformAdmin(req.user) && req.path.startsWith('/platform/') ? next() : approvedMembershipMiddleware(req, res, next));
 
 router.get('/settings', PaymentController.getMySettings);
 router.put('/settings', validateMiddleware(updatePaymentSettingsSchema), PaymentController.updateMySettings);

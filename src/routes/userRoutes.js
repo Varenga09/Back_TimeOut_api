@@ -3,6 +3,7 @@ const UserController = require('../controllers/UserController');
 const upload = require('../config/upload');
 const authMiddleware = require('../middlewares/authMiddleware');
 const emailVerifiedMiddleware = require('../middlewares/emailVerifiedMiddleware');
+const approvedMembershipMiddleware = require('../middlewares/approvedMembershipMiddleware');
 const { validateMiddleware } = require('../middlewares/validateMiddleware');
 const { idParamSchema } = require('../validations/commonValidation');
 const { listUsersQuerySchema, updateUserSchema } = require('../validations/userValidation');
@@ -12,7 +13,7 @@ const router = Router();
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
 
-router.get('/', validateMiddleware(listUsersQuerySchema, 'query'), UserController.getAll);
+router.get('/', approvedMembershipMiddleware, validateMiddleware(listUsersQuerySchema, 'query'), UserController.getAll);
 router.get('/:id', validateMiddleware(idParamSchema, 'params'), UserController.getById);
 router.put(
   '/:id',

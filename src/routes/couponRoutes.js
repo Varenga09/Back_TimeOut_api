@@ -3,6 +3,7 @@ const CouponController = require('../controllers/CouponController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 const emailVerifiedMiddleware = require('../middlewares/emailVerifiedMiddleware');
+const approvedMembershipMiddleware = require('../middlewares/approvedMembershipMiddleware');
 const { validateMiddleware } = require('../middlewares/validateMiddleware');
 const { idParamSchema } = require('../validations/commonValidation');
 const {
@@ -16,6 +17,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
+router.use(approvedMembershipMiddleware);
 router.use(roleMiddleware('seller', 'admin', 'environment_admin'));
 
 router.post('/', validateMiddleware(createCouponSchema), CouponController.create);

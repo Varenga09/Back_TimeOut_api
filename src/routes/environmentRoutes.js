@@ -2,6 +2,7 @@ const { Router } = require('express');
 const EnvironmentController = require('../controllers/EnvironmentController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const emailVerifiedMiddleware = require('../middlewares/emailVerifiedMiddleware');
+const approvedMembershipMiddleware = require('../middlewares/approvedMembershipMiddleware');
 const { validateMiddleware } = require('../middlewares/validateMiddleware');
 const { idParamSchema } = require('../validations/commonValidation');
 const {
@@ -22,6 +23,7 @@ router.get('/:id', validateMiddleware(idParamSchema, 'params'), EnvironmentContr
 router.patch('/:id/switch', validateMiddleware(idParamSchema, 'params'), EnvironmentController.switch);
 router.get(
   '/:id/users',
+  approvedMembershipMiddleware,
   validateMiddleware(idParamSchema, 'params'),
   validateMiddleware(listEnvironmentsQuerySchema, 'query'),
   EnvironmentController.listUsers

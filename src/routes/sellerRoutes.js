@@ -3,6 +3,7 @@ const SellerController = require('../controllers/SellerController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 const emailVerifiedMiddleware = require('../middlewares/emailVerifiedMiddleware');
+const approvedMembershipMiddleware = require('../middlewares/approvedMembershipMiddleware');
 const { validateMiddleware } = require('../middlewares/validateMiddleware');
 const { idParamSchema } = require('../validations/commonValidation');
 const { requestSellerSchema } = require('../validations/sellerValidation');
@@ -12,6 +13,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(emailVerifiedMiddleware);
+router.use(approvedMembershipMiddleware);
 
 router.post('/request', privilegeLimiter, validateMiddleware(requestSellerSchema), SellerController.requestProfile);
 router.get('/requests', roleMiddleware('admin', 'environment_admin'), SellerController.listRequests);

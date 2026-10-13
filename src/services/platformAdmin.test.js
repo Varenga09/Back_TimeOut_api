@@ -138,7 +138,7 @@ test('protege o último administrador interno', async () => {
   });
 });
 
-test('administrador interno mantém ambiente legado, mas não pode trocá-lo', async () => {
+test('administrador interno só troca o ambiente com fluxo de participação explícito', async () => {
   const user = User.build({ role: 'platform_admin', environmentId: 12 }, { isNewRecord: false, raw: true });
   user._previousDataValues = { ...user.dataValues };
 
@@ -147,6 +147,7 @@ test('administrador interno mantém ambiente legado, mas não pode trocá-lo', a
 
   user.set('environmentId', 13);
   await assert.rejects(User.runHooks('beforeUpdate', user), /acesso interno/);
+  await User.runHooks('beforeUpdate', user, { platformMembershipSwitch: true });
 });
 
 test('não existe rota pública de promoção e a saída nunca contém segredo ou senha', () => {
