@@ -8,6 +8,10 @@ module.exports = (sequelize) => {
     message: { type: DataTypes.TEXT, allowNull: false },
     type: { type: DataTypes.STRING(50), allowNull: false },
     internalLink: { type: DataTypes.STRING(255), allowNull: true },
+    targetView: { type: DataTypes.STRING(80), allowNull: true },
+    resourceType: { type: DataTypes.STRING(80), allowNull: true },
+    resourceId: { type: DataTypes.STRING(80), allowNull: true },
+    environmentId: { type: DataTypes.INTEGER, allowNull: true },
     readAt: { type: DataTypes.DATE, allowNull: true },
   }, { tableName: 'notifications', timestamps: true });
   Notification.associate = (models) => Notification.belongsTo(models.User, { foreignKey: 'userId', as: 'recipient' });

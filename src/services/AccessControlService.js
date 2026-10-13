@@ -93,8 +93,8 @@ class AccessControlService {
       const saved = existing
         ? await existing.update({ ...payload, history: appendHistory(existing, 'pending', requester.id, 'Correções enviadas') }, { transaction })
         : await SellerRequest.create({ ...payload, userId: requester.id, environmentId: requester.environmentId, history: [{ status: 'pending', actorId: requester.id, at: new Date().toISOString() }] }, { transaction });
-      await NotificationService.create(requester.id, 'Solicitação enviada', 'Sua solicitação de vendedor foi enviada para análise.', 'seller_application', '/access', transaction);
-      await NotificationService.notifyEnvironmentAdmins(requester.environmentId, 'Nova solicitação de vendedor', `${data.fullName} aguarda análise.`, 'seller_application_review', '/admin-access', transaction);
+      await NotificationService.create(requester.id, 'Solicitação enviada', 'Sua solicitação de vendedor foi enviada para análise.', 'seller_application', '/access', transaction, { resourceType: 'seller_application', resourceId: saved.id, environmentId: requester.environmentId });
+      await NotificationService.notifyEnvironmentAdmins(requester.environmentId, 'Nova solicitação de vendedor', `${data.fullName} aguarda análise.`, 'seller_application_review', '/admin-access', transaction, { resourceType: 'seller_application', resourceId: saved.id });
       await AuditService.record({ actorId: requester.id, action: 'seller_application.created', resourceType: 'seller_application', resourceId: saved.id, environmentId: requester.environmentId, summary: 'Solicitação de vendedor criada' }, transaction);
       return saved;
     });
@@ -132,7 +132,7 @@ class AccessControlService {
         if (Number(target.environmentId) === Number(application.environmentId)) await target.update({ role: 'customer', tokenVersion: Number(target.tokenVersion || 0) + 1 }, { transaction });
         await PlanService.cancelSubscription(application.userId, application.environmentId, transaction);
       }
-      await NotificationService.create(application.userId, 'Solicitação de vendedor atualizada', this.sellerDecisionMessage(data.status, data.reason), 'seller_application', '/access', transaction);
+      await NotificationService.create(application.userId, 'Solicitação de vendedor atualizada', this.sellerDecisionMessage(data.status, data.reason), 'seller_application', '/access', transaction, { resourceType: 'seller_application', resourceId: application.id, environmentId: application.environmentId });
       await AuditService.record({ actorId: requester.id, action: `seller_application.${data.status}`, resourceType: 'seller_application', resourceId: application.id, environmentId: application.environmentId, summary: `Solicitação de vendedor alterada para ${data.status}`, metadata: { reason: data.reason?.trim() || null } }, transaction);
     });
     if (data.status === 'approved') await PlanService.ensureBasicSubscription(application.userId, application.environmentId);
@@ -178,8 +178,8 @@ class AccessControlService {
     const application = existing
       ? await existing.update({ ...payload, history: appendHistory(existing, 'pending', requester.id, 'Correções enviadas') })
       : await EnvironmentApplication.create({ ...payload, userId: requester.id, history: [{ status: 'pending', actorId: requester.id, at: new Date().toISOString() }] });
-    await NotificationService.create(requester.id, 'Solicitação de ambiente enviada', 'A equipe Time Out analisará sua solicitação.', 'environment_application', '/access');
-    await NotificationService.notifyPlatformAdmins('Nova solicitação de ambiente', `${data.institutionName} aguarda análise.`, 'environment_application_review', '/platform');
+    await NotificationService.create(requester.id, 'Solicitação de ambiente enviada', 'A equipe Time Out analisará sua solicitação.', 'environment_application', '/access', null, { resourceType: 'environment_application', resourceId: application.id });
+    await NotificationService.notifyPlatformAdmins('Nova solicitação de ambiente', `${data.institutionName} aguarda análise.`, 'environment_application_review', '/platform', null, { resourceType: 'environment_application', resourceId: application.id });
     await AuditService.record({ actorId: requester.id, action: 'environment_application.created', resourceType: 'environment_application', resourceId: application.id, summary: 'Solicitação de ambiente criada' });
     return sanitizeApplication(application);
   }
@@ -225,7 +225,7 @@ class AccessControlService {
         decidedAt: ['approved', 'rejected'].includes(data.status) ? new Date() : null,
         history: appendHistory(application, data.status, requester.id, data.reason),
       }, { transaction });
-      await NotificationService.create(application.userId, 'Solicitação de ambiente atualizada', data.status === 'approved' ? 'Ambiente aprovado. O código inicial foi exibido uma única vez ao responsável pela aprovação.' : data.status === 'changes_requested' ? `Correções solicitadas: ${data.reason}` : data.status === 'rejected' ? `Solicitação recusada: ${data.reason}` : 'Sua solicitação está em análise.', 'environment_application', '/access', transaction);
+      await NotificationService.create(application.userId, 'Solicitação de ambiente atualizada', data.status === 'approved' ? 'Ambiente aprovado. O código inicial foi exibido uma única vez ao responsável pela aprovação.' : data.status === 'changes_requested' ? `Correções solicitadas: ${data.reason}` : data.status === 'rejected' ? `Solicitação recusada: ${data.reason}` : 'Sua solicitação está em análise.', 'environment_application', '/access', transaction, { resourceType: 'environment_application', resourceId: application.id, environmentId: application.environmentId });
       await AuditService.record({ actorId: requester.id, action: `environment_application.${data.status}`, resourceType: 'environment_application', resourceId: application.id, environmentId: application.environmentId, summary: `Solicitação de ambiente alterada para ${data.status}` }, transaction);
     });
     return { application: sanitizeApplication(await EnvironmentApplication.findByPk(id)), generatedCode };
@@ -284,7 +284,7 @@ class AccessControlService {
       if (['suspended', 'rejected'].includes(data.status) && Number(target.environmentId) === Number(membership.environmentId)) {
         await target.update({ environmentId: null, ...(!isPlatformAdmin(target) && { role: 'customer' }), tokenVersion: Number(target.tokenVersion || 0) + 1 }, { transaction, platformMembershipSwitch: isPlatformAdmin(target) });
       }
-      await NotificationService.create(membership.userId, 'Participação no ambiente atualizada', `Sua entrada no ambiente foi ${data.status === 'approved' ? 'aprovada' : data.status === 'rejected' ? 'recusada' : 'suspensa'}. ${data.reason || ''}`, 'membership', '/access', transaction);
+      await NotificationService.create(membership.userId, 'Participação no ambiente atualizada', `Sua entrada no ambiente foi ${data.status === 'approved' ? 'aprovada' : data.status === 'rejected' ? 'recusada' : 'suspensa'}. ${data.reason || ''}`, 'membership', '/access', transaction, { resourceType: 'membership', resourceId: membership.id, environmentId: membership.environmentId });
       await AuditService.record({ actorId: requester.id, action: `membership.${data.status}`, resourceType: 'membership', resourceId: membership.id, environmentId: membership.environmentId, summary: `Participação alterada para ${data.status}`, metadata: { reason: data.reason?.trim() || null } }, transaction);
     });
     return membership;

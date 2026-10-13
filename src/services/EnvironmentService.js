@@ -74,7 +74,7 @@ class EnvironmentService {
       });
     }
     if (membership.status !== 'approved') {
-      await NotificationService.notifyEnvironmentAdmins(environment.id, 'Nova solicitação de entrada', 'Um cliente aguarda aprovação para entrar no ambiente.', 'membership_review', '/admin-access');
+      await NotificationService.notifyEnvironmentAdmins(environment.id, 'Nova solicitação de entrada', 'Um cliente aguarda aprovação para entrar no ambiente.', 'membership_review', '/admin-access', null, { resourceType: 'membership', resourceId: membership.id });
       await AuditService.record({ actorId: requester.id, action: 'membership.requested', resourceType: 'membership', resourceId: membership.id, environmentId: environment.id, summary: 'Entrada no ambiente solicitada' });
       return { user: await UserRepository.findById(requester.id), membership, pendingApproval: true };
     }
