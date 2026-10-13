@@ -42,8 +42,12 @@ async function run({ env = process.env, logger = console, service = PlatformAdmi
 }
 
 if (require.main === module) {
-  run().catch(() => {
-    console.error('Configuração de promoção interna inválida; a conta não foi alterada');
+  run().catch((error) => {
+    console.error('Promoção interna não concluída; a conta não foi alterada', {
+      type: error?.name || 'UnknownError',
+      code: error?.parent?.code || error?.code || null,
+      constraint: error?.parent?.constraint || null,
+    });
     process.exitCode = 1;
   });
 }
