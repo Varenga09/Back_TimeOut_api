@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const { DataTypes } = require('sequelize');
+const AppError = require('../utils/AppError');
 
 module.exports = (sequelize) => {
   const User = sequelize.define(
@@ -100,6 +101,10 @@ module.exports = (sequelize) => {
           user.password = await bcrypt.hash(user.password, salt);
         },
         beforeUpdate: async (user) => {
+          if (user.previous('role') === 'platform_admin' &&
+            (user.role !== 'platform_admin' || user.environmentId !== null)) {
+            throw new AppError('O acesso interno da equipe Time Out não pode ser alterado por fluxos de ambiente', 403);
+          }
           if (user.changed('password')) {
             const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(user.password, salt);

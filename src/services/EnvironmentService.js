@@ -30,13 +30,7 @@ class EnvironmentService {
       return { environment, generatedCode: accessCode };
     }
 
-    await UserEnvironmentRepository.upsert(requester.id, environment.id, 'environment_admin');
-    const user = await UserRepository.update(requester.id, {
-      environmentId: environment.id,
-      role: 'environment_admin',
-    });
-
-    return { environment, user, generatedCode: accessCode };
+    return { environment, user: await UserRepository.findById(requester.id), generatedCode: accessCode };
   }
 
   async getAll(query, requester) {
@@ -62,6 +56,7 @@ class EnvironmentService {
   }
 
   async join(accessCode, requester) {
+    if (isPlatformAdmin(requester)) throw new AppError('Contas da equipe Time Out não entram em ambientes como clientes', 403);
     const environment = await EnvironmentRepository.findByAccessCode(accessCode);
     if (!environment) {
       throw new AppError('Código de ambiente inválido', 404);
@@ -89,6 +84,7 @@ class EnvironmentService {
   }
 
   async switch(environmentId, requester) {
+    if (isPlatformAdmin(requester)) throw new AppError('Contas da equipe Time Out não alternam para perfis de ambiente', 403);
     const membership = await UserEnvironmentRepository.findOne(requester.id, environmentId);
     if (!membership || membership.status !== 'approved') {
       throw new AppError('Você ainda não faz parte deste ambiente', 403);

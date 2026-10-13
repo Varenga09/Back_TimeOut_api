@@ -3,10 +3,11 @@ const assert = require('node:assert/strict');
 
 const AuthService = require('./AuthService');
 const AccessControlService = require('./AccessControlService');
+const EnvironmentService = require('./EnvironmentService');
 const EnvironmentRepository = require('../repositories/EnvironmentRepository');
 const UserRepository = require('../repositories/UserRepository');
 const UserEnvironmentRepository = require('../repositories/UserEnvironmentRepository');
-const { SellerRequest } = require('../models');
+const { SellerRequest, User, UserEnvironment } = require('../models');
 const { generateEnvironmentAccessCode, hashEnvironmentAccessCode, maskCpf } = require('../utils/security');
 const { isEnvironmentAdmin, isPlatformAdmin } = require('../utils/permissions');
 
@@ -83,6 +84,27 @@ test('perfis administrativos têm escopos distintos', () => {
   assert.equal(isEnvironmentAdmin({ role: 'platform_admin' }), false);
   assert.equal(isPlatformAdmin({ role: 'platform_admin' }), true);
   assert.equal(isPlatformAdmin({ role: 'customer' }), false);
+});
+
+test('conta da equipe não pode trocar de perfil ao entrar ou alternar ambiente', async () => {
+  const requester = { id: 7, role: 'platform_admin', environmentId: null };
+  await assert.rejects(EnvironmentService.join('TO-TESTE', requester), /equipe Time Out não entram/);
+  await assert.rejects(EnvironmentService.switch(1, requester), /não alternam/);
+});
+
+test('transferência de ambiente não remove o acesso de platform_admin', async () => {
+  const originals = { membership: UserEnvironment.findOne, user: User.findByPk };
+  UserEnvironment.findOne = async () => ({ userId: 8, environmentId: 2, status: 'approved' });
+  User.findByPk = async () => ({ id: 8, role: 'platform_admin' });
+  try {
+    await assert.rejects(
+      AccessControlService.transferEnvironment(2, 8, { id: 9, role: 'platform_admin' }),
+      /não pode administrar um ambiente/
+    );
+  } finally {
+    UserEnvironment.findOne = originals.membership;
+    User.findByPk = originals.user;
+  }
 });
 
 test('CPF fica mascarado por padrão', () => {

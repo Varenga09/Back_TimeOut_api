@@ -184,6 +184,10 @@ class AccessControlService {
     if (!application) throw new AppError('Solicitação de ambiente não encontrada', 404);
     if (application.status === 'approved') throw new AppError('Esta solicitação já foi aprovada', 409);
     if (Number(application.userId) === Number(requester.id)) throw new AppError('Você não pode aprovar a própria solicitação', 403);
+    if (data.status === 'approved') {
+      const applicant = await User.findByPk(application.userId);
+      if (isPlatformAdmin(applicant)) throw new AppError('Uma conta da equipe Time Out não pode administrar um ambiente', 403);
+    }
     const allowed = ['under_review', 'changes_requested', 'approved', 'rejected'];
     if (!allowed.includes(data.status)) throw new AppError('Decisão inválida', 400);
     if (['changes_requested', 'rejected'].includes(data.status) && !data.reason) throw new AppError('Informe a justificativa', 400);
@@ -261,8 +265,9 @@ class AccessControlService {
     if (!membership || Number(membership.environmentId) !== Number(requester.environmentId)) throw new AppError('Participação não encontrada', 404);
     if (Number(membership.userId) === Number(requester.id)) throw new AppError('Você não pode revisar sua própria participação', 403);
     if (!['approved', 'rejected', 'suspended'].includes(data.status)) throw new AppError('Status inválido', 400);
-    await membership.update({ status: data.status, reviewedAt: new Date(), reviewedBy: requester.id });
     const target = await User.findByPk(membership.userId);
+    if (isPlatformAdmin(target)) throw new AppError('Contas da equipe Time Out não podem ser alteradas por administradores de ambiente', 403);
+    await membership.update({ status: data.status, reviewedAt: new Date(), reviewedBy: requester.id });
     if (data.status === 'approved' && !target.environmentId) await target.update({ environmentId: membership.environmentId, role: membership.role });
     if (data.status === 'suspended' && Number(target.environmentId) === Number(membership.environmentId)) await target.update({ environmentId: null, role: 'customer' });
     await NotificationService.create(membership.userId, 'Participação no ambiente atualizada', `Sua entrada no ambiente foi ${data.status === 'approved' ? 'aprovada' : data.status === 'rejected' ? 'recusada' : 'suspensa'}.`, 'membership', '/access');
@@ -318,11 +323,12 @@ class AccessControlService {
     if (!isPlatformAdmin(requester)) throw new AppError('Acesso restrito à equipe Time Out', 403);
     const membership = await UserEnvironment.findOne({ where: { userId, environmentId: id, status: 'approved' } });
     if (!membership) throw new AppError('O novo administrador precisa ser participante aprovado', 400);
+    const target = await User.findByPk(userId);
+    if (isPlatformAdmin(target)) throw new AppError('Uma conta da equipe Time Out não pode administrar um ambiente', 403);
     await sequelize.transaction(async (transaction) => {
       await UserEnvironment.update({ role: 'customer' }, { where: { environmentId: id, role: ['admin', 'environment_admin'] }, transaction });
       await User.update({ role: 'customer' }, { where: { environmentId: id, role: ['admin', 'environment_admin'] }, transaction });
       await membership.update({ role: 'environment_admin', reviewedAt: new Date(), reviewedBy: requester.id }, { transaction });
-      const target = await User.findByPk(userId, { transaction });
       await target.update({ environmentId: id, role: 'environment_admin' }, { transaction });
       await NotificationService.create(userId, 'Administração transferida', 'Você agora administra este ambiente.', 'environment_admin', '/admin-access', transaction);
       await AuditService.record({ actorId: requester.id, action: 'environment.admin_transferred', resourceType: 'environment', resourceId: id, environmentId: id, summary: `Administração transferida para o usuário ${userId}` }, transaction);

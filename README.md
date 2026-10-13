@@ -235,6 +235,8 @@ PLATFORM_ADMIN_BOOTSTRAP_SECRET=
 
 Não use prefixo `VITE_` e não salve o valor no repositório. No Shell seguro do serviço no Render, copie o segredo já configurado para uma variável transitória e consulte primeiro o estado da conta:
 
+O Shell do Render exige um plano de computação com suporte a Shell; ele não está disponível no plano Free. No Free, o deploy do código e a criação da variável não executam a promoção automaticamente. Não use uma rota pública nem insira o usuário diretamente no banco para contornar essa restrição.
+
 ```bash
 export PLATFORM_ADMIN_BOOTSTRAP_INPUT="$PLATFORM_ADMIN_BOOTSTRAP_SECRET"
 npm run platform-admin:status -- --email="usuario@exemplo.com" --confirm-production=TIMEOUT_PRODUCTION
