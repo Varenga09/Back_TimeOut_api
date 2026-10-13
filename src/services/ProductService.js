@@ -26,7 +26,9 @@ class ProductService {
 
     const productData = this.normalizeProductData(data);
     productData.flavors = this.attachFlavorImages(productData.flavors || [], [], data.flavorImageIds, files);
+    productData.sizeOptions = this.attachOptionImages(productData.sizeOptions || [], [], data.sizeImageIds, files, 'sizeImages');
     delete productData.flavorImageIds;
+    delete productData.sizeImageIds;
     const mainImage = this.getMainImage(files);
     const uploadedGallery = this.getGalleryImages(files);
     const imageGallery = this.cleanImageList([
@@ -95,7 +97,17 @@ class ProductService {
         files
       );
     }
+    if (Object.prototype.hasOwnProperty.call(productData, 'sizeOptions') || files?.sizeImages?.length) {
+      productData.sizeOptions = this.attachOptionImages(
+        productData.sizeOptions ?? this.normalizeChoiceList(product.sizeOptions, 'tamanho'),
+        this.normalizeChoiceList(product.sizeOptions, 'tamanho'),
+        data.sizeImageIds,
+        files,
+        'sizeImages'
+      );
+    }
     delete productData.flavorImageIds;
+    delete productData.sizeImageIds;
     const mainImage = this.getMainImage(files);
     const uploadedGallery = this.getGalleryImages(files);
     const hasGalleryInPayload = Object.prototype.hasOwnProperty.call(productData, 'imageGallery');
@@ -188,6 +200,12 @@ class ProductService {
     if (Object.prototype.hasOwnProperty.call(productData, 'flavors')) {
       productData.flavors = this.normalizeFlavors(productData.flavors);
     }
+    if (Object.prototype.hasOwnProperty.call(productData, 'sizeOptions')) {
+      productData.sizeOptions = this.normalizeChoiceList(productData.sizeOptions, 'tamanho');
+    }
+    if (Object.prototype.hasOwnProperty.call(productData, 'addons')) {
+      productData.addons = this.normalizeChoiceList(productData.addons, 'adicional');
+    }
 
     if (Object.prototype.hasOwnProperty.call(productData, 'imageGallery')) {
       productData.imageGallery = this.normalizeImageGallery(productData.imageGallery);
@@ -246,7 +264,11 @@ class ProductService {
   }
 
   attachFlavorImages(options, previousOptions, rawIds, files) {
-    const uploads = files?.flavorImages || [];
+    return this.attachOptionImages(options, previousOptions, rawIds, files, 'flavorImages', true);
+  }
+
+  attachOptionImages(options, previousOptions, rawIds, files, field, legacyNameMatch = false) {
+    const uploads = files?.[field] || [];
     uploads.forEach((file) => this.validateFlavorImage(file));
     let ids = [];
     try {
@@ -259,7 +281,9 @@ class ProductService {
     }
 
     const previousById = new Map(previousOptions.filter((option) => option.id).map((option) => [option.id, option]));
-    const previousByName = new Map(previousOptions.map((option) => [option.name.toLowerCase(), option]));
+    const previousByName = legacyNameMatch
+      ? new Map(previousOptions.map((option) => [option.name.toLowerCase(), option]))
+      : new Map();
     const usedIds = new Set();
     const result = options.map((option) => {
       if (option.id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(option.id)) {
@@ -269,12 +293,14 @@ class ProductService {
       const id = previous?.id || option.id || randomUUID();
       if (usedIds.has(id)) throw new AppError('Identificador de opção duplicado', 400);
       usedIds.add(id);
-      return {
+      const resultOption = {
+        ...option,
         id,
         name: option.name,
-        priceAdjustment: option.priceAdjustment,
         imageUrl: option.removeImage ? null : previous?.imageUrl || null,
       };
+      delete resultOption.removeImage;
+      return resultOption;
     });
 
     ids.forEach((id, index) => {
@@ -365,8 +391,51 @@ class ProductService {
       name: name.slice(0, 80),
       priceAdjustment,
       ...(item.imageUrl && { imageUrl: item.imageUrl }),
+      ...(item.isActive === false && { isActive: false }),
       ...(item.removeImage && { removeImage: true }),
     };
+  }
+
+  normalizeChoiceList(value, label) {
+    let values = value;
+    if (typeof values === 'string') {
+      try {
+        values = JSON.parse(values);
+      } catch {
+        throw new AppError(`Lista de ${label}s inválida`, 400);
+      }
+    }
+    if (values == null || values === '') return [];
+    if (!Array.isArray(values) || values.length > (label === 'tamanho' ? 20 : 30)) {
+      throw new AppError(`Lista de ${label}s inválida`, 400);
+    }
+
+    const names = new Set();
+    const ids = new Set();
+    return values.map((item) => {
+      if (!item || typeof item !== 'object') throw new AppError(`${label} inválido`, 400);
+      const name = String(item.name || '').trim().slice(0, 80);
+      const key = name.toLocaleLowerCase('pt-BR');
+      const price = Number(item.price);
+      if (!name || names.has(key) || (item.isActive !== undefined && typeof item.isActive !== 'boolean') || !Number.isFinite(price) || price < (label === 'tamanho' ? 0.01 : 0) || price > 999999 || Math.abs(Math.round(price * 100) - price * 100) > 0.000001) {
+        throw new AppError(`${label} duplicado ou com preço inválido`, 400);
+      }
+      names.add(key);
+      if (item.id) {
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.id)) {
+          throw new AppError(`Identificador de ${label} inválido`, 400);
+        }
+        if (ids.has(item.id)) throw new AppError(`Identificador de ${label} duplicado`, 400);
+        ids.add(item.id);
+      }
+      return {
+        id: item.id || (label === 'adicional' ? randomUUID() : undefined),
+        name,
+        price,
+        isActive: item.isActive !== false,
+        ...(item.removeImage && { removeImage: true }),
+      };
+    });
   }
 
   parseMoneyValue(value) {

@@ -11,6 +11,8 @@ const { isEnvironmentAdmin } = require('../utils/permissions');
 
 const finalStatuses = ['delivered', 'canceled', 'refused'];
 const sellerStatusFlow = ['accepted', 'preparing', 'ready', 'delivered', 'refused'];
+const toCents = (value) => Math.round(Number(value) * 100);
+const fromCents = (value) => Number((value / 100).toFixed(2));
 
 class OrderService {
   async create(data, requester) {
@@ -52,7 +54,7 @@ class OrderService {
     let payment = null;
     const createdOrder = await sequelize.transaction(async (transaction) => {
       const preparedItems = [];
-      let totalPrice = 0;
+      let totalCents = 0;
 
       for (const item of groupedItems) {
         const product = await ProductRepository.findByIdForUpdate(item.productId, transaction);
@@ -69,37 +71,22 @@ class OrderService {
           throw new AppError(`Produto indisponível ou sem estoque: ${product.name}`, 400);
         }
 
-        const selectedOption = this.resolveSelectedOption(product, item.selectedFlavor);
-        const optionPrice = Number((Number(product.price) + selectedOption.priceAdjustment).toFixed(2));
-        const unitPrice = this.applyProductDiscount(product, optionPrice);
-
-        if (unitPrice <= 0) {
-          throw new AppError(`Opção selecionada possui preço inválido: ${product.name}`, 400);
-        }
-
-        const subtotal = Number((unitPrice * item.quantity).toFixed(2));
-        totalPrice += subtotal;
+        const preparedItem = this.prepareItem(product, item);
+        totalCents += toCents(preparedItem.subtotal);
 
         await product.update(
           { quantity: product.quantity - item.quantity },
           { transaction }
         );
 
-        preparedItems.push({
-          productId: product.id,
-          selectedFlavor: selectedOption.name,
-          imageUrl: selectedOption.imageUrl || product.imageUrl || null,
-          quantity: item.quantity,
-          unitPrice,
-          subtotal,
-        });
+        preparedItems.push(preparedItem);
       }
 
       const couponResult = await this.resolveCoupon({
         couponCode: data.couponCode,
         sellerId: data.sellerId,
         environmentId: requester.environmentId,
-        totalPrice,
+        totalPrice: fromCents(totalCents),
         transaction,
       });
       const commissionRate = Number(subscription.commissionRate);
@@ -158,10 +145,15 @@ class OrderService {
 
     for (const item of items) {
       const selectedFlavor = item.selectedFlavor ? String(item.selectedFlavor).trim() : null;
-      const key = `${item.productId}:${selectedFlavor || ''}`;
+      const selectedSizeId = item.selectedSizeId || null;
+      const selectedAddonIds = [...(item.selectedAddonIds || [])].sort();
+      if (new Set(selectedAddonIds).size !== selectedAddonIds.length) throw new AppError('Adicionais duplicados', 400);
+      const key = JSON.stringify([item.productId, selectedFlavor, selectedSizeId, selectedAddonIds]);
       const current = grouped.get(key) || {
         productId: item.productId,
         selectedFlavor,
+        selectedSizeId,
+        selectedAddonIds,
         quantity: 0,
       };
       current.quantity += item.quantity;
@@ -169,6 +161,33 @@ class OrderService {
     }
 
     return Array.from(grouped.values());
+  }
+
+  prepareItem(product, item) {
+    const flavor = this.resolveSelectedOption(product, item.selectedFlavor);
+    const size = this.resolveSize(product, item.selectedSizeId);
+    const addons = this.resolveAddons(product, item.selectedAddonIds);
+    const baseCents = (size ? toCents(size.price) : toCents(product.price)) + toCents(flavor.priceAdjustment);
+    const discountedBaseCents = this.applyProductDiscountCents(product, baseCents);
+    const unitCents = discountedBaseCents + addons.reduce((sum, addon) => sum + toCents(addon.price), 0);
+    if (baseCents <= 0 || unitCents <= 0) throw new AppError(`Opção selecionada possui preço inválido: ${product.name}`, 400);
+
+    // Desconto do produto incide apenas na base; cupom é aplicado depois ao pedido inteiro.
+    return {
+      productId: product.id,
+      selectedFlavor: flavor.name,
+      imageUrl: size?.imageUrl || flavor.imageUrl || product.imageUrl || null,
+      optionsSnapshot: {
+        basePrice: fromCents(baseCents),
+        size: size ? { id: size.id, name: size.name, price: fromCents(toCents(size.price)) } : null,
+        flavor: flavor.name ? { name: flavor.name, priceAdjustment: fromCents(toCents(flavor.priceAdjustment)) } : null,
+        addons: addons.map((addon) => ({ id: addon.id, name: addon.name, price: fromCents(toCents(addon.price)) })),
+        productDiscount: fromCents(baseCents - discountedBaseCents),
+      },
+      quantity: item.quantity,
+      unitPrice: fromCents(unitCents),
+      subtotal: fromCents(unitCents * item.quantity),
+    };
   }
 
   resolveSelectedOption(product, selectedFlavor) {
@@ -184,7 +203,7 @@ class OrderService {
     }
 
     const selectedOption = options.find(
-      (option) => option.name.toLowerCase() === flavorName.toLowerCase()
+      (option) => option.name.toLowerCase() === flavorName.toLowerCase() && option.isActive !== false
     );
 
     if (!selectedOption) {
@@ -192,6 +211,29 @@ class OrderService {
     }
 
     return selectedOption;
+  }
+
+  resolveSize(product, selectedSizeId) {
+    const sizes = Array.isArray(product.sizeOptions) ? product.sizeOptions : [];
+    if (sizes.length === 0) {
+      if (selectedSizeId) throw new AppError('Tamanho inválido para este produto', 400);
+      return null;
+    }
+    const size = sizes.find((option) => option.id === selectedSizeId && option.isActive !== false);
+    if (!size) throw new AppError('Escolha um tamanho ativo deste produto', 400);
+    return size;
+  }
+
+  resolveAddons(product, selectedAddonIds = []) {
+    const options = Array.isArray(product.addons) ? product.addons : [];
+    if (!Array.isArray(selectedAddonIds) || new Set(selectedAddonIds).size !== selectedAddonIds.length) {
+      throw new AppError('Adicionais inválidos', 400);
+    }
+    return selectedAddonIds.map((id) => {
+      const option = options.find((candidate) => candidate.id === id && candidate.isActive !== false);
+      if (!option) throw new AppError('Adicional inválido para este produto', 400);
+      return option;
+    });
   }
 
   parseProductOptions(value) {
@@ -217,20 +259,25 @@ class OrderService {
           name,
           priceAdjustment: Number.isFinite(priceAdjustment) ? priceAdjustment : 0,
           imageUrl: item.imageUrl || null,
+          ...(item.isActive === false && { isActive: false }),
         };
       })
       .filter(Boolean);
   }
 
   applyProductDiscount(product, price) {
+    return fromCents(this.applyProductDiscountCents(product, toCents(price)));
+  }
+
+  applyProductDiscountCents(product, baseCents) {
     const discount = this.getActiveDiscount(product);
-    if (!discount) return price;
+    if (!discount) return baseCents;
 
     const discountAmount = discount.type === 'percentage'
-      ? price * (discount.value / 100)
-      : discount.value;
+      ? Math.round(baseCents * (discount.value / 100))
+      : toCents(discount.value);
 
-    return Number(Math.max(0.01, price - discountAmount).toFixed(2));
+    return Math.max(1, baseCents - discountAmount);
   }
 
   getActiveDiscount(product) {
@@ -281,15 +328,16 @@ class OrderService {
     }
 
     const value = Number(coupon.discountValue);
-    const discount = coupon.discountType === 'percentage'
-      ? totalPrice * (value / 100)
-      : value;
-    const safeDiscount = Number(Math.min(totalPrice, Math.max(0, discount)).toFixed(2));
+    const totalCents = toCents(totalPrice);
+    const discountCents = coupon.discountType === 'percentage'
+      ? Math.round(totalCents * (value / 100))
+      : toCents(value);
+    const safeDiscountCents = Math.min(totalCents, Math.max(0, discountCents));
 
     return {
       coupon,
-      discount: safeDiscount,
-      finalTotal: Number(Math.max(0, totalPrice - safeDiscount).toFixed(2)),
+      discount: fromCents(safeDiscountCents),
+      finalTotal: fromCents(totalCents - safeDiscountCents),
     };
   }
 

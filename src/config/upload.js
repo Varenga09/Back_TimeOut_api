@@ -18,7 +18,7 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.fieldname === 'flavorImages' && !['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+  if (['flavorImages', 'sizeImages'].includes(file.fieldname) && !['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
     return cb(new AppError('Foto da opção deve ser JPG, PNG ou WebP', 400), false);
   }
   if (!file.mimetype.startsWith('image/')) {

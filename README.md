@@ -667,6 +667,12 @@ POST http://localhost:3001/api/v1/environments/join
 
 ### Criar produto
 
+Produtos podem ter `sizeOptions` (tamanhos exclusivos, cada um com `id`, `name`, `price` absoluto e `isActive`) e `addons` (adicionais cumulativos, cada um com `id`, `name`, `price` e `isActive`). A ordem do array define a ordem exibida; use IDs UUID estaveis ao editar ou reordenar. `flavors` continua sendo o grupo legado de escolha exclusiva e nao e convertido em adicional. Produtos antigos sem os novos campos continuam validos.
+
+Fotos opcionais de tamanhos usam os campos multipart `sizeImages` e `sizeImageIds` (JSON com os IDs correspondentes), separados da foto principal, galeria e fotos dos sabores. O vendedor pode remover uma foto com `removeImage: true` na opcao, sem afetar as outras.
+
+No pedido, envie `selectedSizeId` quando houver tamanhos e `selectedAddonIds` (array, possivelmente vazio). O servidor exige um tamanho ativo, valida cada adicional no proprio produto e recalcula tudo: desconto do produto incide somente no preco do tamanho/base mais eventual ajuste de sabor; adicionais entram pelo valor integral. O cupom incide depois sobre o subtotal completo, incluindo adicionais. `order_items.optionsSnapshot` conserva nomes e valores escolhidos, mesmo apos futuras edicoes do produto. Totais enviados pelo navegador nao sao aceitos.
+
 ```txt
 POST http://localhost:3001/api/v1/products
 ```

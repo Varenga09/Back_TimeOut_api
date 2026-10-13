@@ -5,8 +5,30 @@ const flavorOptionSchema = Joi.object({
   id: Joi.string().uuid().optional(),
   name: Joi.string().trim().max(80).required(),
   priceAdjustment: Joi.number().precision(2).min(-9999).max(9999).default(0),
+  isActive: Joi.boolean().optional(),
   removeImage: Joi.boolean().optional(),
 });
+
+const sizeOptionsSchema = Joi.alternatives().try(
+  Joi.array().items(Joi.object({
+    id: Joi.string().uuid().optional(),
+    name: Joi.string().trim().max(80).required(),
+    price: Joi.number().precision(2).positive().max(999999).required(),
+    isActive: Joi.boolean().optional(),
+    removeImage: Joi.boolean().optional(),
+  })).max(20),
+  Joi.string().trim().max(12000).allow('', null)
+).optional();
+
+const addonsSchema = Joi.alternatives().try(
+  Joi.array().items(Joi.object({
+    id: Joi.string().uuid().optional(),
+    name: Joi.string().trim().max(80).required(),
+    price: Joi.number().precision(2).min(0).max(999999).required(),
+    isActive: Joi.boolean().optional(),
+  })).max(30),
+  Joi.string().trim().max(12000).allow('', null)
+).optional();
 
 const flavorsSchema = Joi.alternatives()
   .try(
@@ -21,7 +43,10 @@ const createProductSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120).required(),
   description: Joi.string().trim().allow('', null).optional(),
   flavors: flavorsSchema,
+  sizeOptions: sizeOptionsSchema,
+  addons: addonsSchema,
   flavorImageIds: Joi.string().max(1000).optional(),
+  sizeImageIds: Joi.string().max(1000).optional(),
   price: Joi.number().precision(2).positive().required(),
   discountType: Joi.string().valid('percentage', 'fixed').allow('', null).optional(),
   discountValue: Joi.number().precision(2).min(0).allow(null).optional(),
@@ -43,7 +68,10 @@ const updateProductSchema = Joi.object({
   name: Joi.string().trim().min(2).max(120),
   description: Joi.string().trim().allow('', null),
   flavors: flavorsSchema,
+  sizeOptions: sizeOptionsSchema,
+  addons: addonsSchema,
   flavorImageIds: Joi.string().max(1000).optional(),
+  sizeImageIds: Joi.string().max(1000).optional(),
   price: Joi.number().precision(2).positive(),
   discountType: Joi.string().valid('percentage', 'fixed').allow('', null),
   discountValue: Joi.number().precision(2).min(0).allow(null),

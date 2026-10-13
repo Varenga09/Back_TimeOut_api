@@ -25,6 +25,8 @@ const createOrderSchema = Joi.object({
       Joi.object({
         productId: Joi.number().integer().positive().required(),
         selectedFlavor: Joi.string().trim().max(120).allow('', null).optional(),
+        selectedSizeId: Joi.string().uuid().allow('', null).optional(),
+        selectedAddonIds: Joi.array().items(Joi.string().uuid()).unique().max(30).default([]),
         quantity: Joi.number().integer().min(1).required(),
       })
     )

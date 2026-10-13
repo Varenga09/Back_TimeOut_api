@@ -29,6 +29,10 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(120),
         allowNull: true,
       },
+      optionsSnapshot: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
       imageUrl: {
         type: DataTypes.STRING(255),
         allowNull: true,

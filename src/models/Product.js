@@ -21,6 +21,14 @@ module.exports = (sequelize) => {
         type: DataTypes.JSON,
         allowNull: true,
       },
+      sizeOptions: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+      addons: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
       price: {
         type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
