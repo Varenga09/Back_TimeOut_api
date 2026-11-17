@@ -218,14 +218,21 @@ class AuthService {
       throw new AppError('Cadastre um telefone antes de usar SMS ou WhatsApp', 400);
     }
 
-    const emailVerificationCode = generateEmailCode();
+    const localEmailVerification = selectedChannel === 'email'
+      && process.env.NODE_ENV === 'development'
+      && process.env.IDENTITY_VERIFICATION_MODE !== 'live';
+    const emailVerificationCode = localEmailVerification
+      ? (process.env.LOCAL_VERIFICATION_CODE || '123456')
+      : generateEmailCode();
     await user.update({
       emailVerificationCode: hashSecurityCode(emailVerificationCode),
       emailVerificationExpiresAt: getEmailCodeExpiresAt(),
       verificationChannel: selectedChannel,
     });
 
-    const deliveryResult = await this.sendVerificationCode(user, emailVerificationCode, selectedChannel);
+    const deliveryResult = localEmailVerification
+      ? { sent: true, reason: 'LOCAL_DELIVERY' }
+      : await this.sendVerificationCode(user, emailVerificationCode, selectedChannel);
 
     return {
       user: await UserRepository.findById(userId),
@@ -235,6 +242,7 @@ class AuthService {
       verificationTarget: this.getVerificationTarget(user, selectedChannel),
       emailSent: selectedChannel === 'email' ? deliveryResult.sent : false,
       emailReason: deliveryResult.reason,
+      ...(localEmailVerification && { developmentCode: emailVerificationCode }),
     };
   }
 
